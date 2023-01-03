@@ -21,6 +21,10 @@ classifiers=[
     "Topic :: System :: Hardware :: Universal Serial Bus (USB) :: Smart Card",
 ]
 
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/titusz/boltlib/issues"
+
+
 [tool.poetry.scripts]
 boltcard = 'boltlib.cli:cli'
 
@@ -40,7 +44,6 @@ poethepoet = "*"
 format = { cmd = "poetry run black .", help = "Format code with black" }
 test = { cmd = "poetry run pytest", help = "Run tests" }
 all = ["format", "test"]
-
 
 [build-system]
 requires = ["poetry-core"]
