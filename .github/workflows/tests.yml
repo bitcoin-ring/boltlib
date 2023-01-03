@@ -17,7 +17,7 @@ jobs:
         shell: bash
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
-            sudo apt install libpcsclite-dev python3-all-dev python3-setuptools swig
+            sudo apt install libpcsclite-dev swig
           fi
       - name: Install Poetry
         uses: abatilo/actions-poetry@v2.0.0
