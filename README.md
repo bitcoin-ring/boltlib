@@ -2,8 +2,8 @@
 
 [![Tests](https://github.com/titusz/boltlib/actions/workflows/tests.yml/badge.svg)](https://github.com/titusz/boltlib/actions/workflows/tests.yml)
 
-`boltlib` is a Python library and command line tool for easy reading and writing
-[BoltCards](https://boltcard.org)
+`boltlib` is a Python library and command line tool for easy reading and writing of
+[BoltCards](https://boltcard.org) based on [pyscard](https://github.com/LudovicRousseau/pyscard)
 
 ## Requirements
 
@@ -14,6 +14,8 @@
 ```shell
 $ pip install boltlib
 ```
+
+> **Note**: On Linux you might need to first run `sudo apt install libpcsclite-dev swig`
 
 ## Command line usage
 
