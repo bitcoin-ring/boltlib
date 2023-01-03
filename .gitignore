@@ -1,0 +1,9 @@
+.idea
+build
+dist
+site
+*.egg-info
+__pycache__
+.coverage
+coverage.xml
+.pytest_cache

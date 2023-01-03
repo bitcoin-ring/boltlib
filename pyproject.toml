@@ -1,0 +1,33 @@
+[tool.poetry]
+name = "boltlib"
+version = "0.1.0"
+description = "Bitcoin Lightning BoltCard (NTAG 424 DNA) Read/Write library"
+authors = ["Titusz <tp@py7.de>"]
+license = "Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/titusz/boltlib"
+keywords=["bitcoin", "lightning", "boltcard", "nfc", "contactless"]
+classifiers=[
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: System :: Hardware :: Universal Serial Bus (USB) :: Smart Card",
+]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
