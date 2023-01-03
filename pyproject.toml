@@ -39,6 +39,7 @@ click = "^8.1"
 pytest = "^7.2.0"
 black = "*"
 poethepoet = "*"
+pyinstaller = "*"
 
 [tool.poe.tasks]
 format = { cmd = "poetry run black .", help = "Format code with black" }

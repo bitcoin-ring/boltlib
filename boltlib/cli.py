@@ -44,3 +44,7 @@ def write(uri: str):
 
 cli.add_command(read)
 cli.add_command(write)
+
+
+if __name__ == "__main__":
+    cli()
