@@ -39,7 +39,7 @@ jobs:
       if: matrix.os != 'macos-11'
       run: ./dist/boltcard
 
-    - name: Test iscc-cli MacOS
+    - name: Test MacOS
       if: matrix.os == 'macos-11'
       run: ./dist/boltcard/boltcard
 
