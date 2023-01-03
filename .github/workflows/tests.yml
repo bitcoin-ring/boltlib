@@ -13,11 +13,16 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install cktap dependencies
+      - name: setup prerequisites
+        shell: bash
         run: |
           if [ "$RUNNER_OS" == "Linux" ]; then
-            sudo apt-get update -y
-            sudo apt-get install -y swig libpcsclite-dev
+            sudo apt install libpcsclite-dev python3-all-dev python3-setuptools swig
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            brew install swig
+          else
+            echo "$RUNNER_OS not supported"
+            exit 1
           fi
       - name: Install Poetry
         uses: abatilo/actions-poetry@v2.0.0
