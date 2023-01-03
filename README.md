@@ -8,14 +8,18 @@
 ## Requirements
 
 - [Python 3.8](https://www.python.org/) or higher.
+- Smart Card Reader (USB CCID class-compliant)
+
+Tested with `Identiv uTrust 3700F` but should work with others like for example `ACS ACR1252U` or
+`HID Omnikey 5022 CL`.
+
+> **Note**: On Ubuntu/Debian run `sudo apt-get install libpcsclite-dev swig` before installation.
 
 ## Installation
 
 ```shell
 $ pip install boltlib
 ```
-
-> **Note**: On Linux you might need to first run `sudo apt install libpcsclite-dev swig`
 
 ## Command line usage
 
