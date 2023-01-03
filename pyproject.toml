@@ -21,12 +21,26 @@ classifiers=[
     "Topic :: System :: Hardware :: Universal Serial Bus (USB) :: Smart Card",
 ]
 
+[tool.poetry.scripts]
+boltcard = 'boltlib.cli:cli'
+
 [tool.poetry.dependencies]
 python = "^3.8"
-
+loguru = "^0.6"
+pyscard = "^2.0"
+ndeflib = "^0.3"
+click = "^8.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.2.0"
+black = "*"
+poethepoet = "*"
+
+[tool.poe.tasks]
+format = { cmd = "poetry run black .", help = "Format code with black" }
+test = { cmd = "poetry run pytest", help = "Run tests" }
+all = ["format", "test"]
+
 
 [build-system]
 requires = ["poetry-core"]
