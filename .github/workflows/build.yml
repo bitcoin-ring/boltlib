@@ -1,0 +1,51 @@
+name: Build
+
+on: workflow_dispatch
+
+jobs:
+  Build:
+    name: Build BoltCard CLI
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, macos-10.15, windows-2016]
+        python-version: [3.9]
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Poetry
+      uses: abatilo/actions-poetry@v2.0.0
+
+    - name: Install boltlib
+      run: poetry install
+
+    - name: Install MacOS deps
+      if: matrix.os == 'MacOS'
+      run: brew install upx
+
+    - name: Install Windows deps
+      if: matrix.os == 'Windows'
+      run: choco install upx
+
+    - name: Install Ubuntu deps
+      if: matrix.os == 'Ubuntu'
+      run: sudo apt install libpcsclite-dev swig upx
+
+    - name: Build boltcard cli
+      run: poetry run python build.py
+
+    - name: Test iscc-cli Ubuntu/Windows
+      if: matrix.os != 'macos-10.15'
+      run: ./dist/boltcard
+
+    - name: Test iscc-cli MacOS
+      if: matrix.os == 'macos-10.15'
+      run: ./dist/boltcard/boltcard
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: boltcard-cli-${{ matrix.os }}
+        path: dist/*
