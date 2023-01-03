@@ -47,5 +47,5 @@ test = { cmd = "poetry run pytest", help = "Run tests" }
 all = ["format", "test"]
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core", "setuptools", "wheel"]
 build-backend = "poetry.core.masonry.api"
