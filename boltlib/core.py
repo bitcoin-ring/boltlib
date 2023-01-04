@@ -18,11 +18,14 @@ from smartcard.util import toBytes, toHexString
 
 __all__ = [
     "wait_for_card",
-    "check_card",
+    "get_version",
+    "check_version",
     "read_uid",
     "read_uri",
     "write_uri",
 ]
+
+import boltlib
 
 
 class DESfire(CardType):
@@ -73,44 +76,32 @@ def wait_for_card(timeout=None) -> CardService:
     cardservice.connection.connect()
     reader = cardservice.connection.getReader()
     log.debug(f"Card connected on {reader}")
-    sleep(1)  # We have to wait a bit here else check_card fails with a fresh card
-    check_card(cardservice)
     return cardservice
 
 
-def check_card(cs: Optional[CardService] = None) -> str:
-    """Get Card compatibility via version information.
-
-    Example Responses:
-    Hardware:   0404023000110591AF
-    Software:   0404020102110591AF
-    Production: 00000000000000CF5CD4556043219100 (000..-> UID)
-    """
+def get_version(cs: Optional[CardService] = None) -> str:
+    """Execute GetVersion command sequence and return concatenated responses as hex string."""
     cs = cs or wait_for_card()
     GET_VERSION_A = toBytes("9060000000")
     GET_VERSION_B = toBytes("90AF000000")
-    log.debug(f"Checking Card compatibility")
     v1 = Response(cs.connection.transmit(GET_VERSION_A))
     assert v1.status == "91AF", f"GetVersion 3 response error {v1.status}"
-    assert v1.data[:2] == "04", "Vendor ID not NXP"
-    assert v1.data[2:4] == "04", "HW type not NTAG"
-    assert v1.data[6:8] == "30", "HW major version not 30"
-    assert v1.data[12:14] == "05", "HW communication protocol type not 05"
-
     v2 = Response(cs.connection.transmit(GET_VERSION_B))
     assert v2.status == "91AF", f"GetVersion 3 response error {v2.status}"
-    assert v2.data.startswith("04040201"), "Invalid Card Software"
-
     v3 = Response(cs.connection.transmit(GET_VERSION_B))
     assert v3.status == "9100", f"GetVersion 3 response error {v3.status}"
-    uid = v3.data[:14]
-    batch_no = int(v3.data[14:22], 16)
-    week = v3.data[24:26]
-    year = v3.data[26:28]
-    log.trace(f"  HW UID   {uid}")
-    log.trace(f"  HW BATCH {batch_no}")
-    log.trace(f"  HW YEAR  {year}")
-    log.trace(f"  HW WEEK  {week}")
+    result = v1.data + v2.data + v3.data
+    log.debug(f"Version: {result}")
+    return result
+
+
+def check_version(version: str) -> None:
+    """Check version information retrieved from card is NTAG 424 DNA comptible."""
+    v = boltlib.parse_version(version)
+    assert v.HW_VendorID == 0x04, "Vendor ID not NXP"
+    assert v.HW_Type == 0x04, "HW type not NTAG"
+    assert v.HW_MajorVersion == 0x30, "HW major version not 30"
+    assert v.HW_Protocol == 0x05, "HW protocol not 05"
     log.debug(f"Card compatibility ok")
 
 
@@ -187,3 +178,7 @@ def write_uri(uri: str, cs: Optional[CardService] = None) -> ndef.UriRecord:
         response.status == "9000"
     ), f"Write uri failed with status {response.status}"  # OK
     return record
+
+
+if __name__ == "__main__":
+    print(get_version())

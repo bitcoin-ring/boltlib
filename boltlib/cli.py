@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import sys
 import json
+from time import sleep
+
 import click
 import boltlib
 from loguru import logger as log
@@ -25,6 +27,12 @@ def cli(silent):
 def read():
     """Read BoltCard UID and URI"""
     cs = boltlib.wait_for_card()
+    sleep(1)
+    version = boltlib.get_version(cs)
+    try:
+        boltlib.check_version(version)
+    except AssertionError as e:
+        click.echo(f"Incompatible card: {e}")
     uid = boltlib.read_uid(cs)
     uri = boltlib.read_uri(cs)
     result = dict(uid=uid, uri=uri)
@@ -37,6 +45,9 @@ def read():
 def write(uri: str):
     """Write URI to BoltCard (unprovisioned only)"""
     cs = boltlib.wait_for_card()
+    sleep(1)
+    version = boltlib.get_version(cs)
+    boltlib.check_version(version)
     boltlib.write_uri(uri, cs=cs)
     click.echo(f"Success - Wrote {uri} to card")
     cs.connection.disconnect()

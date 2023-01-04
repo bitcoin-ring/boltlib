@@ -1,6 +1,8 @@
 # boltlib - Bitcoin Lightning BoltCard library
 
 [![Tests](https://github.com/titusz/boltlib/actions/workflows/tests.yml/badge.svg)](https://github.com/titusz/boltlib/actions/workflows/tests.yml)
+[![Version](https://img.shields.io/pypi/v/boltlib.svg)](https://pypi.python.org/pypi/boltlib/)
+[![Downloads](https://pepy.tech/badge/boltlib)](https://pepy.tech/project/boltlib)
 
 `boltlib` is a Python library and command line tool for easy reading and writing of
 [BoltCards](https://boltcard.org) based on [pyscard](https://github.com/LudovicRousseau/pyscard)

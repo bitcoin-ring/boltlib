@@ -64,6 +64,28 @@ optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
 
 [[package]]
+name = "construct"
+version = "2.10.68"
+description = "A powerful declarative symmetric parser/builder for binary data"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[package.extras]
+extras = ["arrow", "cloudpickle", "enum34", "lz4", "numpy", "ruamel.yaml"]
+
+[[package]]
+name = "construct-typing"
+version = "0.5.4"
+description = "Extension for the python package 'construct' that adds typing features"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[package.dependencies]
+construct = "2.10.68"
+
+[[package]]
 name = "exceptiongroup"
 version = "1.1.0"
 description = "Backport of PEP 654 (exception groups)"
@@ -328,7 +350,7 @@ dev = ["black (>=19.3b0)", "pytest (>=4.6.2)"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "ac5e4b55356d9b5954d4fcb900e05b3ef453fcba6b4b38b9540c66c59635eebf"
+content-hash = "d96c9f6f129306aa9ea00cd424398d5aedbf41ee02029c7cb1b55502d4d4ab7f"
 
 [metadata.files]
 altgraph = [
@@ -360,6 +382,13 @@ click = [
 colorama = [
     {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
+]
+construct = [
+    {file = "construct-2.10.68.tar.gz", hash = "sha256:7b2a3fd8e5f597a5aa1d614c3bd516fa065db01704c72a1efaaeec6ef23d8b45"},
+]
+construct-typing = [
+    {file = "construct-typing-0.5.4.tar.gz", hash = "sha256:a35e738a760924964506c14d88bd46df6d864a3f4078112cb37f8d3f52d5b587"},
+    {file = "construct_typing-0.5.4-py3-none-any.whl", hash = "sha256:4ad603c9f5720bf0b2d5e32a85485c7fc68f15e6a79a26e02363048f6bb0b1f2"},
 ]
 exceptiongroup = [
     {file = "exceptiongroup-1.1.0-py3-none-any.whl", hash = "sha256:327cbda3da756e2de031a3107b81ab7b3770a602c4d16ca618298c526f4bec1e"},
