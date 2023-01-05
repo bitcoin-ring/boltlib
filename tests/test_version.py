@@ -3,4 +3,4 @@ import boltlib
 
 
 def test_version():
-    assert boltlib.__version__ == "0.2.0"
+    assert boltlib.__version__ == "0.3.0"

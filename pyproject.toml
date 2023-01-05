@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "boltlib"
-version = "0.2.0"
+version = "0.3.0"
 description = "Bitcoin Lightning BoltCard (NTAG 424 DNA) Read/Write library"
 authors = ["Titusz <tp@py7.de>"]
 license = "LGPL-2.1-only"
