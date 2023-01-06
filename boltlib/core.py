@@ -5,7 +5,8 @@ BoltCard Read/Write Library based on pyscard.
 NTAG 424 DNA documentation: https://www.nxp.com/docs/en/data-sheet/NT4H2421Gx.pdf
 
 """
-from time import sleep
+import dataclasses
+from collections import deque
 from typing import Optional, Tuple, List
 from urllib.parse import unquote
 from loguru import logger as log
@@ -14,7 +15,9 @@ from smartcard.CardService import CardService
 from smartcard.CardType import CardType
 import ndef
 from smartcard.util import toBytes, toHexString
-
+import secrets
+from Cryptodome.Cipher import AES
+from Cryptodome.Hash import CMAC
 
 __all__ = [
     "wait_for_card",
@@ -180,5 +183,124 @@ def write_uri(uri: str, cs: Optional[CardService] = None) -> ndef.UriRecord:
     return record
 
 
+def authenticate(key: str = "", cs: Optional[CardService] = None) -> boltlib.Session:
+    cs = cs or wait_for_card()
+    key = key or "00000000000000000000000000000000"
+    key = bytes.fromhex(key)
+    # IsoSelectFile
+    response = Response(cs.connection.transmit(toBytes("00A4040007D276000085010100")))
+    assert response.status == "9000"
+
+    # AuthenticateFirst - Returns an Encrypted PICC challenge of 16 bytes
+    response = Response(cs.connection.transmit(toBytes("9071000005000300000000")))
+    log.debug(f"PICC encrypted challenge: {response.data}")
+    assert response.status == "91AF"  # ADDITIONAL_FRAME
+
+    # Decrypt Challenge with key
+    IVbytes = b"\x00" * 16
+    cipher = AES.new(key, AES.MODE_CBC, IVbytes)
+    decrypted_challenge = cipher.decrypt(response.ba)
+    # The Challenge is the 16 by RND_B from PICC
+    RND_B = decrypted_challenge
+    log.debug(f"PICC decrypted challenge: {decrypted_challenge.hex().upper()}")
+    rotated_challenge = deque(decrypted_challenge)
+    rotated_challenge.rotate(-1)
+    rotated_challenge = bytes(rotated_challenge)
+    log.debug(f"Rotated challenge: {rotated_challenge.hex().upper()}")
+
+    # Answer challenge
+    prefix = b"\x90\xAF\x00\x00\x20"
+    postfix = b"\x00"
+    rnd_a = secrets.token_bytes(16)
+    RND_A = rnd_a
+    rnd_b = rotated_challenge
+    answer = rnd_a + rnd_b
+    log.debug(f"Plain answer {answer.hex().upper()}")
+    cipher = AES.new(key, AES.MODE_CBC, IVbytes)
+    encrypted_answer = cipher.encrypt(answer)
+    log.debug(f"Encrypted Answer {encrypted_answer.hex().upper()}")
+    apdu = bytearray(prefix + encrypted_answer + postfix)
+    log.debug(f"Full Answer APDU: {apdu.hex().upper()} - {len(apdu)}")
+    auth_response = Response(cs.connection.transmit(list(apdu)))
+
+    # Decrypt AuthResponse
+    log.debug(f"Encrypted Auth repsonse: {auth_response.status} - {auth_response.data}")
+    assert auth_response.status == "9100"  # OPERATION_OK
+    cipher = AES.new(key, AES.MODE_CBC, IVbytes)
+    decrypted_auth_response = cipher.decrypt(auth_response.ba)
+    auth_obj = boltlib.parse_auth_response(decrypted_auth_response)
+    log.debug(f"Decrypted AuthResponse: {auth_obj}")
+
+    # Derive SessionKeys
+    f1 = bytes(reversed(RND_A[14:16]))
+    f2 = bytes(reversed(RND_A[8:14]))
+    f3 = bytes(reversed(RND_B[10:16]))
+    f4 = bytes(reversed(RND_B[0:10]))
+    f5 = bytes(reversed(RND_A[0:8]))
+    SV1 = bytes.fromhex("A55A00010080") + f1 + bxor(f2, f3) + f4 + f5
+    SV2 = bytes.fromhex("5AA500010080") + f1 + bxor(f2, f3) + f4 + f5
+    log.debug(f"SV1: {SV1.hex().upper()} - {len(SV1)}")
+    log.debug(f"SV2: {SV2.hex().upper()} - {len(SV2)}")
+
+    enc = CMAC.new(key, SV1, ciphermod=AES).digest()
+    mac = CMAC.new(key, SV2, ciphermod=AES).digest()
+    log.debug(f"SesAuthENCKey: {enc.hex().upper()}")
+    log.debug(f"SesAuthMACKey: {mac.hex().upper()}")
+    result = boltlib.Session(key_enc=enc, key_mac=mac, auth_info=auth_obj)
+    log.debug(result)
+
+    # Get File Settings with auth
+    prefix = bytes.fromhex("90 F5 00 00 09 02")
+    cmd = bytes.fromhex("F5")
+    cmd_counter = bytes.fromhex("00 00")
+    transaction_id = auth_obj.TI
+    log.debug(f"Transaction ID: {transaction_id.hex().upper()}")
+    cmd_header = bytes.fromhex("F5 00 00 02")
+    # cmd_data = b"\x02"
+    msg = cmd + cmd_counter + transaction_id + cmd_header  # cmd_data
+    log.debug(f"MSG for GetFileSettings CMAC: {msg.hex().upper()} - {len(msg)}")
+    msg_padded = pad(msg)
+    log.debug(f"Padded MSG: {msg_padded.hex().upper()} - {len(msg_padded)}")
+
+    cmac = CMAC.new(result.key_mac, msg_padded, ciphermod=AES).digest()
+    cmat_t = tmac(cmac)
+    log.debug(f"Message CMAC: {cmat_t.hex().upper()}")
+    apdu = prefix + cmat_t + b"\x00"
+    log.debug(f"GetFileSettings Request: {bytes(apdu).hex().upper()}")
+    get_file_respons = Response(cs.connection.transmit(list(apdu)))
+    log.debug(f"GetFileSettings Response: {get_file_respons}")
+
+    return result
+
+
+def pad(msg: bytes) -> bytes:
+    """Message padding for Communicate MAC mode
+
+    Padding is applied according to Padding Method 2 of ISO/IEC 9797-1 [7], i.e. by adding always
+    80h followed, if required, by zero bytes until a string with a length of a multiple of 16 byte
+    is obtained. Note that if the plain data is a multiple of 16 bytes already, an additional
+    padding block is added.
+    """
+    pad_length = len(msg) % 16
+    if pad_length == 0:
+        return msg + b"\x80" + (b"\x00" * 15)
+    else:
+        return msg + b"\x80" + (b"\x00" * (16 - pad_length - 1))
+
+
+def bxor(b1: bytes, b2: bytes) -> bytes:
+    """XOR bytes"""
+    result = b""
+    for b1, b2 in zip(b1, b2):
+        result += bytes([b1 ^ b2])
+    return result
+
+
+def tmac(cmac: bytes) -> bytes:
+    """Truncate mac to 8 even-numbered bytes"""
+    return bytes([b for i, b in enumerate(cmac) if i % 2 == 1])
+
+
 if __name__ == "__main__":
-    print(get_version())
+    authenticate()
+

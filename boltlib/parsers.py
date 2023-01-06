@@ -6,7 +6,12 @@ from typing import Union
 from construct import Int8ub, Int32ub, Bytes, Hex
 from construct_typed import DataclassMixin, DataclassStruct, csfield
 
-__all__ = ["parse_version"]
+__all__ = [
+    "AuthResponse",
+    "Session",
+    "parse_version",
+    "parse_auth_response",
+]
 
 
 @dataclasses.dataclass
@@ -37,6 +42,24 @@ class Version(DataclassMixin):
 version_parser = DataclassStruct(Version)
 
 
+@dataclasses.dataclass
+class AuthResponse(DataclassMixin):
+    TI: bytes = csfield(Hex(Bytes(4)))
+    RndA: bytes = csfield(Hex(Bytes(16)))
+    PDcap2: bytes = csfield(Hex(Bytes(6)))
+    PCDcap2: bytes = csfield(Hex(Bytes(6)))
+
+
+auth_response_parser = DataclassStruct(AuthResponse)
+
+
+@dataclasses.dataclass
+class Session:
+    key_enc: bytes
+    key_mac: bytes
+    auth_info: AuthResponse
+
+
 def parse_version(data: Union[bytes, str]) -> Version:
     """Parse NFC Card Version information from bytes or hex string."""
     if isinstance(data, bytes):
@@ -45,3 +68,12 @@ def parse_version(data: Union[bytes, str]) -> Version:
         return version_parser.parse(bytes.fromhex(data))
     else:
         raise ValueError("Version data must be bytes or string")
+
+
+def parse_auth_response(data: Union[bytes, str]) -> AuthResponse:
+    if isinstance(data, bytes):
+        return auth_response_parser.parse(data)
+    elif isinstance(data, str):
+        return auth_response_parser.parse(bytes.fromhex(data))
+    else:
+        raise ValueError("AuthResponse data must be bytes or string")
