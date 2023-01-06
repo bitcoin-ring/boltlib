@@ -2,10 +2,11 @@
 """
 BoltCard Read/Write Library based on pyscard.
 
+See:
 NTAG 424 DNA documentation: https://www.nxp.com/docs/en/data-sheet/NT4H2421Gx.pdf
-
+And AN12343 Documentation: https://www.nxp.com/docs/en/application-note/AN12343.pdf
+GetFileSettings MACed see: https://www.nxp.com/docs/en/application-note/AN12196.pdf  page 21
 """
-import dataclasses
 from collections import deque
 from typing import Optional, Tuple, List
 from urllib.parse import unquote
@@ -231,61 +232,47 @@ def authenticate(key: str = "", cs: Optional[CardService] = None) -> boltlib.Ses
     auth_obj = boltlib.parse_auth_response(decrypted_auth_response)
     log.debug(f"Decrypted AuthResponse: {auth_obj}")
 
-    # Derive SessionKeys
-    f1 = bytes(reversed(RND_A[14:16]))
-    f2 = bytes(reversed(RND_A[8:14]))
-    f3 = bytes(reversed(RND_B[10:16]))
-    f4 = bytes(reversed(RND_B[0:10]))
-    f5 = bytes(reversed(RND_A[0:8]))
-    SV1 = bytes.fromhex("A55A00010080") + f1 + bxor(f2, f3) + f4 + f5
-    SV2 = bytes.fromhex("5AA500010080") + f1 + bxor(f2, f3) + f4 + f5
-    log.debug(f"SV1: {SV1.hex().upper()} - {len(SV1)}")
-    log.debug(f"SV2: {SV2.hex().upper()} - {len(SV2)}")
-
-    enc = CMAC.new(key, SV1, ciphermod=AES).digest()
-    mac = CMAC.new(key, SV2, ciphermod=AES).digest()
+    enc, mac = derive_session_keys(key, RND_A, RND_B)
     log.debug(f"SesAuthENCKey: {enc.hex().upper()}")
     log.debug(f"SesAuthMACKey: {mac.hex().upper()}")
+    log.debug(f"TransactionID: {auth_obj.TI.hex().upper()}")
     result = boltlib.Session(key_enc=enc, key_mac=mac, auth_info=auth_obj)
-    log.debug(result)
+    return result
 
-    # Get File Settings with auth
+
+def get_file_settings(key: str = "", cs: Optional[CardService] = None):
+    cs = cs or wait_for_card()
+    key = key or "00000000000000000000000000000000"
+    ses = authenticate(key, cs)
     prefix = bytes.fromhex("90 F5 00 00 09 02")
     cmd = bytes.fromhex("F5")
     cmd_counter = bytes.fromhex("00 00")
-    transaction_id = auth_obj.TI
-    log.debug(f"Transaction ID: {transaction_id.hex().upper()}")
-    cmd_header = bytes.fromhex("F5 00 00 02")
-    # cmd_data = b"\x02"
-    msg = cmd + cmd_counter + transaction_id + cmd_header  # cmd_data
+    transaction_id = ses.auth_info.TI
+    cmd_header = bytes.fromhex("02")
+    msg = cmd + cmd_counter + transaction_id + cmd_header
     log.debug(f"MSG for GetFileSettings CMAC: {msg.hex().upper()} - {len(msg)}")
-    msg_padded = pad(msg)
-    log.debug(f"Padded MSG: {msg_padded.hex().upper()} - {len(msg_padded)}")
-
-    cmac = CMAC.new(result.key_mac, msg_padded, ciphermod=AES).digest()
-    cmat_t = tmac(cmac)
+    cmac = cmac_sign(ses.key_mac, msg)
+    cmat_t = truncate_mac(cmac)
     log.debug(f"Message CMAC: {cmat_t.hex().upper()}")
     apdu = prefix + cmat_t + b"\x00"
     log.debug(f"GetFileSettings Request: {bytes(apdu).hex().upper()}")
     get_file_respons = Response(cs.connection.transmit(list(apdu)))
     log.debug(f"GetFileSettings Response: {get_file_respons}")
 
-    return result
 
-
-def pad(msg: bytes) -> bytes:
-    """Message padding for Communicate MAC mode
-
-    Padding is applied according to Padding Method 2 of ISO/IEC 9797-1 [7], i.e. by adding always
-    80h followed, if required, by zero bytes until a string with a length of a multiple of 16 byte
-    is obtained. Note that if the plain data is a multiple of 16 bytes already, an additional
-    padding block is added.
-    """
-    pad_length = len(msg) % 16
-    if pad_length == 0:
-        return msg + b"\x80" + (b"\x00" * 15)
-    else:
-        return msg + b"\x80" + (b"\x00" * (16 - pad_length - 1))
+def derive_session_keys(key, rnd_a, rnd_b):
+    # type: (bytes, bytes, bytes) -> Tuple[bytes, bytes]
+    """Derive and return SessionKeys as Tuple of (SesAuthENCKey, SesAuthMACKey)"""
+    f1 = bytes(rnd_a[0:2])
+    f2 = bytes(rnd_a[2:8])
+    f3 = bytes(rnd_b[0:6])
+    f4 = bytes(rnd_b[6:16])
+    f5 = bytes(rnd_a[8:16])
+    SV1 = bytes.fromhex("A55A00010080") + f1 + bxor(f2, f3) + f4 + f5
+    SV2 = bytes.fromhex("5AA500010080") + f1 + bxor(f2, f3) + f4 + f5
+    enc = CMAC.new(key, SV1, ciphermod=AES).digest()
+    mac = CMAC.new(key, SV2, ciphermod=AES).digest()
+    return enc, mac
 
 
 def bxor(b1: bytes, b2: bytes) -> bytes:
@@ -296,11 +283,18 @@ def bxor(b1: bytes, b2: bytes) -> bytes:
     return result
 
 
-def tmac(cmac: bytes) -> bytes:
-    """Truncate mac to 8 even-numbered bytes"""
-    return bytes([b for i, b in enumerate(cmac) if i % 2 == 1])
+def truncate_mac(cmac: bytes) -> bytes:
+    """Truncate mac to 8 bytes (even numbered bytes)"""
+    return bytes(cmac[1::2])
+    # return bytes([b for i, b in enumerate(cmac) if i % 2 == 1])
+
+
+def cmac_sign(key: bytes, msg: bytes = b"") -> bytes:
+    cobj = CMAC.new(key, ciphermod=AES)
+    if msg != b"":
+        cobj.update(msg)
+    return cobj.digest()
 
 
 if __name__ == "__main__":
-    authenticate()
-
+    get_file_settings()
