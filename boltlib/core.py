@@ -263,11 +263,11 @@ def get_file_settings(key: str = "", cs: Optional[CardService] = None):
 def derive_session_keys(key, rnd_a, rnd_b):
     # type: (bytes, bytes, bytes) -> Tuple[bytes, bytes]
     """Derive and return SessionKeys as Tuple of (SesAuthENCKey, SesAuthMACKey)"""
-    f1 = bytes(rnd_a[0:2])
-    f2 = bytes(rnd_a[2:8])
-    f3 = bytes(rnd_b[0:6])
-    f4 = bytes(rnd_b[6:16])
-    f5 = bytes(rnd_a[8:16])
+    f1 = rnd_a[0:2]
+    f2 = rnd_a[2:8]
+    f3 = rnd_b[0:6]
+    f4 = rnd_b[6:16]
+    f5 = rnd_a[8:16]
     SV1 = bytes.fromhex("A55A00010080") + f1 + bxor(f2, f3) + f4 + f5
     SV2 = bytes.fromhex("5AA500010080") + f1 + bxor(f2, f3) + f4 + f5
     enc = CMAC.new(key, SV1, ciphermod=AES).digest()
