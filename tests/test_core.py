@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from boltlib.core import derive_session_keys, cmac_short, xor
+from boltlib.core import derive_session_keys, cmac_short, xor, rotate
 
 
 def test_derive_session_keys():
@@ -26,3 +26,8 @@ def test_xor():
     a = bytes.fromhex("0011aaff")
     b = bytes.fromhex("1100bbcc")
     assert xor(a, b).hex() == "11111133"
+
+
+def test_rotate():
+    a = bytes.fromhex("0011aaff")
+    assert rotate(a, -1).hex() == "11aaff00"

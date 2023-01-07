@@ -184,58 +184,50 @@ def write_uri(uri: str, cs: Optional[CardService] = None) -> ndef.UriRecord:
     return record
 
 
-def authenticate(key: str = "", cs: Optional[CardService] = None) -> boltlib.Session:
+def authenticate(key=None, cs=None):
+    # type: (Optional[str], Optional[CardService]) -> boltlib.Session
+    """Execute AuthenticateEV2First command sequence and return Session"""
     cs = cs or wait_for_card()
     key = key or "00000000000000000000000000000000"
     key = bytes.fromhex(key)
+
     # IsoSelectFile
-    response = Response(cs.connection.transmit(toBytes("00A4040007D276000085010100")))
+    select_cmd = "00A4040007D276000085010100"
+    log.debug(f"Start authentication with SelectFile: {select_cmd}")
+    response = Response(cs.connection.transmit(toBytes(select_cmd)))
     assert response.status == "9000"
 
     # AuthenticateFirst - Returns an Encrypted PICC challenge of 16 bytes
-    response = Response(cs.connection.transmit(toBytes("9071000005000300000000")))
-    log.debug(f"PICC encrypted challenge: {response.data}")
-    assert response.status == "91AF"  # ADDITIONAL_FRAME
+    auth_first_cmd = "9071000005000300000000"
+    log.debug(f"AUTH 0 - AuthenticateFirst Part 1: {auth_first_cmd}")
+    response = Response(cs.connection.transmit(toBytes(auth_first_cmd)))
+    log.debug(f"AUTH 1 - PICC encrypted challenge: {response.data}")
+    assert response.status == "91AF", f"Failed AuthFirst Part1 with {response.status}"
 
-    # Decrypt Challenge with key
+    # Decrypt Challenge - The challenge is the 16 byte RND_B from PICC
     IVbytes = b"\x00" * 16
     cipher = AES.new(key, AES.MODE_CBC, IVbytes)
-    decrypted_challenge = cipher.decrypt(response.ba)
-    # The Challenge is the 16 by RND_B from PICC
-    RND_B = decrypted_challenge
-    log.debug(f"PICC decrypted challenge: {decrypted_challenge.hex().upper()}")
-    rotated_challenge = deque(decrypted_challenge)
-    rotated_challenge.rotate(-1)
-    rotated_challenge = bytes(rotated_challenge)
-    log.debug(f"Rotated challenge: {rotated_challenge.hex().upper()}")
+    rnd_b = cipher.decrypt(response.ba)
 
-    # Answer challenge
-    prefix = b"\x90\xAF\x00\x00\x20"
-    postfix = b"\x00"
+    # Answer challenge with our own secret (RND_A) + rotated RND_B
+    rnd_b_rot = rotate(rnd_b, -1)
     rnd_a = secrets.token_bytes(16)
-    RND_A = rnd_a
-    rnd_b = rotated_challenge
-    answer = rnd_a + rnd_b
-    log.debug(f"Plain answer {answer.hex().upper()}")
+    answer = rnd_a + rnd_b_rot
     cipher = AES.new(key, AES.MODE_CBC, IVbytes)
     encrypted_answer = cipher.encrypt(answer)
-    log.debug(f"Encrypted Answer {encrypted_answer.hex().upper()}")
+    prefix = b"\x90\xAF\x00\x00\x20"
+    postfix = b"\x00"
     apdu = bytearray(prefix + encrypted_answer + postfix)
-    log.debug(f"Full Answer APDU: {apdu.hex().upper()} - {len(apdu)}")
+    log.debug(f"AUTH 2 - PCD encrypted answer: {apdu.hex().upper()} - {len(apdu)}")
     auth_response = Response(cs.connection.transmit(list(apdu)))
-
-    # Decrypt AuthResponse
-    log.debug(f"Encrypted Auth repsonse: {auth_response.status} - {auth_response.data}")
+    log.debug(f"AUTH 3 - PICC encrypted response: {auth_response.data}")
     assert auth_response.status == "9100"  # OPERATION_OK
+
+    # Decrypt AuthResponse and construct Session
     cipher = AES.new(key, AES.MODE_CBC, IVbytes)
     decrypted_auth_response = cipher.decrypt(auth_response.ba)
     auth_obj = boltlib.parse_auth_response(decrypted_auth_response)
-    log.debug(f"Decrypted AuthResponse: {auth_obj}")
-
-    enc, mac = derive_session_keys(key, RND_A, RND_B)
-    log.debug(f"SesAuthENCKey: {enc.hex().upper()}")
-    log.debug(f"SesAuthMACKey: {mac.hex().upper()}")
-    log.debug(f"TransactionID: {auth_obj.TI.hex().upper()}")
+    enc, mac = derive_session_keys(key, rnd_a, rnd_b)
     result = boltlib.Session(key_enc=enc, key_mac=mac, auth_info=auth_obj)
     return result
 
@@ -272,6 +264,14 @@ def derive_session_keys(key, rnd_a, rnd_b):
     enc = CMAC.new(key, SV1, ciphermod=AES).digest()
     mac = CMAC.new(key, SV2, ciphermod=AES).digest()
     return enc, mac
+
+
+def rotate(b, n):
+    # type: (bytes, int) -> bytes
+    """Return new bytes rotated by `n`. (Negative `n` for left rotation)"""
+    d = deque(b)
+    d.rotate(n)
+    return bytes(d)
 
 
 def xor(b1, b2):
