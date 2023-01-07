@@ -193,15 +193,16 @@ def authenticate(key=None, cs=None):
 
     # IsoSelectFile
     select_cmd = "00A4040007D276000085010100"
-    log.debug(f"Start authentication with SelectFile: {select_cmd}")
+    log.debug(f"> Start authentication with SelectFile: {select_cmd}")
     response = Response(cs.connection.transmit(toBytes(select_cmd)))
+    log.debug(f"< {response.status}")
     assert response.status == "9000"
 
     # AuthenticateFirst - Returns an Encrypted PICC challenge of 16 bytes
     auth_first_cmd = "9071000005000300000000"
-    log.debug(f"AUTH 0 - AuthenticateFirst Part 1: {auth_first_cmd}")
+    log.debug(f"> AUTH 0 - AuthenticateFirst Part 1: {auth_first_cmd}")
     response = Response(cs.connection.transmit(toBytes(auth_first_cmd)))
-    log.debug(f"AUTH 1 - PICC encrypted challenge: {response.data}")
+    log.debug(f"< AUTH 1 - PICC encrypted challenge: {response.data}")
     assert response.status == "91AF", f"Failed AuthFirst Part1 with {response.status}"
 
     # Decrypt Challenge - The challenge is the 16 byte RND_B from PICC
@@ -218,9 +219,9 @@ def authenticate(key=None, cs=None):
     prefix = b"\x90\xAF\x00\x00\x20"
     postfix = b"\x00"
     apdu = bytearray(prefix + encrypted_answer + postfix)
-    log.debug(f"AUTH 2 - PCD encrypted answer: {apdu.hex().upper()} - {len(apdu)}")
+    log.debug(f"> AUTH 2 - PCD encrypted answer: {apdu.hex().upper()} - {len(apdu)}")
     auth_response = Response(cs.connection.transmit(list(apdu)))
-    log.debug(f"AUTH 3 - PICC encrypted response: {auth_response.data}")
+    log.debug(f"< AUTH 3 - PICC encrypted response: {auth_response.data}")
     assert auth_response.status == "9100"  # OPERATION_OK
 
     # Decrypt AuthResponse and construct Session
@@ -232,7 +233,9 @@ def authenticate(key=None, cs=None):
     return result
 
 
-def get_file_settings(key: str = "", cs: Optional[CardService] = None):
+def get_file_settings(key=None, cs=None):
+    # type: (Optional[str], Optional[CardService]) -> None
+    """GetFileSettings"""
     cs = cs or wait_for_card()
     key = key or "00000000000000000000000000000000"
     ses = authenticate(key, cs)
@@ -242,13 +245,12 @@ def get_file_settings(key: str = "", cs: Optional[CardService] = None):
     transaction_id = ses.auth_info.TI
     cmd_header = bytes.fromhex("02")
     msg = cmd + cmd_counter + transaction_id + cmd_header
-    log.debug(f"MSG for GetFileSettings CMAC: {msg.hex().upper()} - {len(msg)}")
     cmac = cmac_short(ses.key_mac, msg)
-    log.debug(f"Message CMAC: {cmac.hex().upper()}")
     apdu = prefix + cmac + b"\x00"
-    log.debug(f"GetFileSettings Request: {bytes(apdu).hex().upper()}")
-    get_file_respons = Response(cs.connection.transmit(list(apdu)))
-    log.debug(f"GetFileSettings Response: {get_file_respons}")
+    log.debug(f"> GetFileSettings Request: {bytes(apdu).hex().upper()}")
+    get_file_response = Response(cs.connection.transmit(list(apdu)))
+    log.debug(f"< GetFileSettings Response: {get_file_response.data}")
+    assert get_file_response.status == "9100"
 
 
 def derive_session_keys(key, rnd_a, rnd_b):
