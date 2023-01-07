@@ -267,19 +267,17 @@ def derive_session_keys(key, rnd_a, rnd_b):
     f3 = rnd_b[0:6]
     f4 = rnd_b[6:16]
     f5 = rnd_a[8:16]
-    SV1 = bytes.fromhex("A55A00010080") + f1 + bxor(f2, f3) + f4 + f5
-    SV2 = bytes.fromhex("5AA500010080") + f1 + bxor(f2, f3) + f4 + f5
+    SV1 = bytes.fromhex("A55A00010080") + f1 + xor(f2, f3) + f4 + f5
+    SV2 = bytes.fromhex("5AA500010080") + f1 + xor(f2, f3) + f4 + f5
     enc = CMAC.new(key, SV1, ciphermod=AES).digest()
     mac = CMAC.new(key, SV2, ciphermod=AES).digest()
     return enc, mac
 
 
-def bxor(b1: bytes, b2: bytes) -> bytes:
-    """XOR bytes"""
-    result = b""
-    for b1, b2 in zip(b1, b2):
-        result += bytes([b1 ^ b2])
-    return result
+def xor(b1, b2):
+    # type: (bytes, bytes) -> bytes
+    """XOR byte sequences of even length"""
+    return bytes(x ^ y for x, y in zip(b1, b2))
 
 
 def cmac_short(key, msg):
