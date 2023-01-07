@@ -251,10 +251,9 @@ def get_file_settings(key: str = "", cs: Optional[CardService] = None):
     cmd_header = bytes.fromhex("02")
     msg = cmd + cmd_counter + transaction_id + cmd_header
     log.debug(f"MSG for GetFileSettings CMAC: {msg.hex().upper()} - {len(msg)}")
-    cmac = cmac_sign(ses.key_mac, msg)
-    cmat_t = truncate_mac(cmac)
-    log.debug(f"Message CMAC: {cmat_t.hex().upper()}")
-    apdu = prefix + cmat_t + b"\x00"
+    cmac = cmac_short(ses.key_mac, msg)
+    log.debug(f"Message CMAC: {cmac.hex().upper()}")
+    apdu = prefix + cmac + b"\x00"
     log.debug(f"GetFileSettings Request: {bytes(apdu).hex().upper()}")
     get_file_respons = Response(cs.connection.transmit(list(apdu)))
     log.debug(f"GetFileSettings Response: {get_file_respons}")
@@ -283,17 +282,10 @@ def bxor(b1: bytes, b2: bytes) -> bytes:
     return result
 
 
-def truncate_mac(cmac: bytes) -> bytes:
-    """Truncate mac to 8 bytes (even numbered bytes)"""
-    return bytes(cmac[1::2])
-    # return bytes([b for i, b in enumerate(cmac) if i % 2 == 1])
-
-
-def cmac_sign(key: bytes, msg: bytes = b"") -> bytes:
-    cobj = CMAC.new(key, ciphermod=AES)
-    if msg != b"":
-        cobj.update(msg)
-    return cobj.digest()
+def cmac_short(key, msg):
+    # type: (bytes, bytes) -> bytes
+    """Calculate truncted CMAC (8 even numbered bytes)."""
+    return CMAC.new(key, msg, ciphermod=AES).digest()[1::2]
 
 
 if __name__ == "__main__":
