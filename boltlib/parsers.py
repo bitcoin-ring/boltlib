@@ -1,16 +1,19 @@
 # -*- coding: utf-8 -*-
 """NFC Message Parsers"""
 import dataclasses
-from typing import Union
-
-from construct import Int8ub, Int32ub, Bytes, Hex
+from typing import Union, Optional
+from bitarray import bitarray, frozenbitarray
+from bitarray.util import ba2int
+from construct import Int8ub, Int32ub, Bytes, Hex, Int24ub, Int16ub, BitsInteger
 from construct_typed import DataclassMixin, DataclassStruct, csfield
 
 __all__ = [
     "AuthResponse",
     "Session",
+    "FileSettings",
     "parse_version",
     "parse_auth_response",
+    "parse_file_settings",
 ]
 
 
@@ -58,6 +61,50 @@ class Session:
     key_enc: bytes
     key_mac: bytes
     auth_info: AuthResponse
+
+
+@dataclasses.dataclass
+class FileSettings:
+
+    file_type: Optional[int] = None
+    communication_mode: Optional[str] = None
+
+
+def parse_file_settings(data: bytes) -> FileSettings:
+    """Parse NTAG 424 DNA FileSettings"""
+    ba = bitarray()
+    ba.frombytes(data)
+    ba = frozenbitarray(ba)
+    fs = FileSettings()
+
+    fs.file_type = ba2int(ba[:8])
+    cm = {
+        frozenbitarray("00"): "Plain",
+        frozenbitarray("10"): "Plain",
+        frozenbitarray("01"): "MAC",
+        frozenbitarray("11"): "Full",
+    }
+
+    fs.communication_mode = cm[ba[8:10]]
+    return fs
+
+
+# @dataclasses.dataclass
+# class FileSettings(DataclassMixin):
+#     """GetFileSettings Response"""
+#     file_type: bytes = csfield(Int8ub)
+#     file_option: bytes = csfield(Hex(Int8ub))
+#     access_rights: bytes = csfield(Hex(Int16ub))
+#     file_size: bytes = csfield(Int24ub)
+#     sdm_options: bytes = csfield(Hex(Int8ub))
+#
+#
+# file_settings_parser = DataclassStruct(FileSettings)
+#
+#
+# def parse_file_settings(data: bytes) -> FileSettings:
+#     """Parse NTAG 424 DNA FileSettings"""
+#     return file_settings_parser.parse(data)
 
 
 def parse_version(data: Union[bytes, str]) -> Version:

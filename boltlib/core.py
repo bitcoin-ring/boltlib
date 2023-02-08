@@ -204,7 +204,6 @@ def authenticate(key=None, cs=None):
     response = Response(cs.connection.transmit(toBytes(auth_first_cmd)))
     log.debug(f"< AUTH 1 - PICC encrypted challenge: {response.data}")
     assert response.status == "91AF", f"Failed AuthFirst Part1 with {response.status}"
-
     # Decrypt Challenge - The challenge is the 16 byte RND_B from PICC
     IVbytes = b"\x00" * 16
     cipher = AES.new(key, AES.MODE_CBC, IVbytes)
@@ -234,7 +233,7 @@ def authenticate(key=None, cs=None):
 
 
 def get_file_settings(key=None, cs=None):
-    # type: (Optional[str], Optional[CardService]) -> None
+    # type: (Optional[str], Optional[CardService]) -> boltlib.FileSettings
     """GetFileSettings"""
     cs = cs or wait_for_card()
     key = key or "00000000000000000000000000000000"
@@ -251,6 +250,9 @@ def get_file_settings(key=None, cs=None):
     get_file_response = Response(cs.connection.transmit(list(apdu)))
     log.debug(f"< GetFileSettings Response: {get_file_response.data}")
     assert get_file_response.status == "9100"
+    fs_obj = boltlib.parse_file_settings(get_file_response.ba)
+    log.debug(fs_obj)
+    return fs_obj
 
 
 def derive_session_keys(key, rnd_a, rnd_b):
@@ -289,4 +291,5 @@ def cmac_short(key, msg):
 
 
 if __name__ == "__main__":
-    get_file_settings()
+    v = get_version()
+    print(boltlib.parse_version(v))
