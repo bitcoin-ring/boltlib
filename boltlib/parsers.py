@@ -65,7 +65,6 @@ class Session:
 
 @dataclasses.dataclass
 class FileSettings:
-
     file_type: Optional[int] = None
     communication_mode: Optional[str] = None
 
