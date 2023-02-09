@@ -288,8 +288,3 @@ def cmac_short(key, msg):
     # type: (bytes, bytes) -> bytes
     """Calculate truncted CMAC (8 even numbered bytes)."""
     return CMAC.new(key, msg, ciphermod=AES).digest()[1::2]
-
-
-if __name__ == "__main__":
-    v = get_version()
-    print(boltlib.parse_version(v))
