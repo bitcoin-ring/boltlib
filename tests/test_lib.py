@@ -29,6 +29,6 @@ def test_build_url_template_is_lnurlw():
         boltlib.build_url_template("https://card.yourdomain.com/ln")
 
 
-def test_build_url_template_now_query_string():
+def test_build_url_template_no_query_string():
     with pytest.raises(ValueError):
         boltlib.build_url_template("lnurlw://card.yourdomain.com/ln?key=value")
