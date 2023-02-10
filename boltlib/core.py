@@ -24,9 +24,11 @@ __all__ = [
     "wait_for_card",
     "get_version",
     "check_version",
+    "read_ndef",
     "read_uid",
     "read_uri",
     "write_uri",
+    "Response",
 ]
 
 import boltlib
@@ -118,8 +120,8 @@ def read_uid(cs: Optional[CardService] = None) -> str:
     return result.data
 
 
-def read_uri(cs: Optional[CardService] = None) -> Optional[str]:
-    """Read and decode the first NDEF record from the card."""
+def read_ndef(cs: Optional[CardService] = None) -> Tuple[List, int, int]:
+    """Read the first NDEF record from the card."""
     cs = cs or wait_for_card()
     SELECT_A = toBytes(
         "00A4040007D276000085010100"
@@ -132,7 +134,12 @@ def read_uri(cs: Optional[CardService] = None) -> Optional[str]:
     assert select_a.status == "9000"
     select_b = Response(cs.connection.transmit(SELECT_B))
     assert select_b.status == "9000"
-    response = Response(cs.connection.transmit(READ_BINARY_ALL))
+    return cs.connection.transmit(READ_BINARY_ALL)
+
+
+def read_uri(cs: Optional[CardService] = None) -> Optional[str]:
+    """Read and decode the first NDEF record from the card."""
+    response = Response(read_ndef(cs))
     log.debug(f"READ_BINARY: {response.status} - {response.data[:32]}...")
     try:
         records: List[ndef.UriRecord] = list(ndef.message_decoder(response.ba[2:]))
