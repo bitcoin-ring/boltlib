@@ -9,9 +9,12 @@ __all__ = [
     "burn_04_auth_finalize",
 ]
 
+APDU_SELECT_NTAG_424 = "00A4040007D276000085010100"
+APDU_SELECT_NDEF = "00A4000002E10400"
 
-def burn(url, nfc_writer):
-    # type: (str, bl.NFCWriter) -> None
+
+def burn(url, keys, nfc_writer):
+    # type: (str, list[str], bl.NFCWriter) -> None
     """Burn (provision) a Bolt Card"""
 
     # Write URL Template
@@ -25,7 +28,14 @@ def burn(url, nfc_writer):
     apdus = burn_03_auth_response(session, response)
     response = nfc_writer.write(apdus)
     burn_04_auth_finalize(session, response)
-    ...
+
+    # Configure PICC
+    apdus = burn_05_configure_picc(session, url)
+    nfc_writer.write(apdus)
+
+    # Change Keys
+    apdus = burn_06_change_keys(session, keys)
+    nfc_writer.write(apdus)
 
 
 def burn_01_write_url(url):
@@ -36,11 +46,10 @@ def burn_01_write_url(url):
     :param str url: Withdraw endpoint URL or URL template
     :return: List of APDU commands (hex) to write the URI Template to the NFC device
     """
-    # IsoSelectFile - 00A4040007D276000085010100
-    # IsoSelectFile - 00A4000002E10300
+    apdus = [APDU_SELECT_NTAG_424, APDU_SELECT_NDEF]
     url_obj = bl.build_url_template(url)
     ...
-    return []
+    return apdus
 
 
 def burn_02_auth_challenge(session):
@@ -83,8 +92,8 @@ def burn_04_auth_finalize(session, response):
     return None
 
 
-def burn_05_configure_picc(session):
-    # type: (bl.Session) -> list[str]
+def burn_05_configure_picc(session, url):
+    # type: (bl.Session, str) -> list[str]
     """
     Configure PICC mirroring, SUN Messaging and other stuff
     """

@@ -9,7 +9,7 @@ __all__ = [
 
 
 class UrlTemplate:
-    """URL tamplate to be written to BoltCard"""
+    """URL template to be written to BoltCard"""
 
     def __init__(self, url, picc_offset, cmac_offset):
         # type: (str, int, int) -> None
