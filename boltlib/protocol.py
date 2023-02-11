@@ -16,7 +16,7 @@ def burn(url, nfc_writer):
 
     # Write URL Template
     apdus = burn_01_write_url(url)
-    response = nfc_writer.write(apdus)
+    nfc_writer.write(apdus)
 
     # Authenticate
     session = bl.Session()
