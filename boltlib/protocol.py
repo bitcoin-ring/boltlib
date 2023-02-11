@@ -10,6 +10,24 @@ __all__ = [
 ]
 
 
+def burn(url, nfc_writer):
+    # type: (str, bl.NFCWriter) -> None
+    """Burn (provision) a Bolt Card"""
+
+    # Write URL Template
+    apdus = burn_01_write_url(url)
+    response = nfc_writer.write(apdus)
+
+    # Authenticate
+    session = bl.Session()
+    apdus = burn_02_auth_challenge(session)
+    response = nfc_writer.write(apdus)
+    apdus = burn_03_auth_response(session, response)
+    response = nfc_writer.write(apdus)
+    burn_04_auth_finalize(session, response)
+    ...
+
+
 def burn_01_write_url(url):
     # type: (str) -> list[str]
     """

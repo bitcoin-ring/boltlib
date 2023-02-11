@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
+from typing import Protocol
 
 __all__ = [
     "UrlTemplate",
     "Session",
+    "NFCWriter",
 ]
 
 
@@ -27,3 +29,12 @@ class Session:
         self.key_enc: bytes = b""
         self.key_mac: bytes = b""
         self.ti: bytes = b""
+
+
+class NFCWriter(Protocol):
+    """Interface writer interface"""
+
+    def write(self, apdu):
+        # type: (Union[str,List[str]]) -> str
+        """Writes one or more hex coded APDU message to NFC device and returns HEX response"""
+        ...
