@@ -1,21 +1,11 @@
 # -*- coding: utf-8 -*-
-
+import boltlib as bl
 
 __all__ = ["build_url_template"]
 
 
-class UrlTemplate:
-    """URL tamplate to be written to BoltCard"""
-
-    def __init__(self, url, picc_offset, cmac_offset):
-        # type: (str, int, int) -> None
-        self.url = url
-        self.picc_offset = picc_offset
-        self.cmac_offset = cmac_offset
-
-
 def build_url_template(url):
-    # type: (str) -> UrlTemplate
+    # type: (str) -> bl.UrlTemplate
     """
     Takes a base URL or URL template and builds the UrlTemplate to be written to the BoltCard.
 
@@ -47,4 +37,4 @@ def build_url_template(url):
     if len(url) >= 250:
         raise ValueError("expanded url must be shorter than 250 characters")
 
-    return UrlTemplate(url, picc_offset, cmac_offset)
+    return bl.UrlTemplate(url, picc_offset, cmac_offset)
