@@ -24,11 +24,27 @@ def test_build_url_template_substitute():
     assert obj.cmac_offset == 76
 
 
+def test_build_url_template_query_string_ok_if_url_template():
+    obj = boltlib.build_url_template(
+        "lnurlw://test.com/ln?key=value&cmac={cmac}&picc={picc}"
+    )
+    assert obj.url == (
+        "lnurlw://test.com/ln"
+        "?key=value&cmac=cccccccccccccccc&picc=pppppppppppppppppppppppppppppppp"
+    )
+
+
 def test_build_url_template_is_lnurlw():
     with pytest.raises(ValueError):
         boltlib.build_url_template("https://card.yourdomain.com/ln")
 
 
-def test_build_url_template_no_query_string():
+def test_build_url_template_no_query_string_if_base_url():
     with pytest.raises(ValueError):
         boltlib.build_url_template("lnurlw://card.yourdomain.com/ln?key=value")
+
+
+def test_build_url_template_url_too_long():
+    url = f"lnurlw://card.yourdomain.com/ln/{'x' * 250}"
+    with pytest.raises(ValueError):
+        boltlib.build_url_template(url)
