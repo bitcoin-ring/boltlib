@@ -29,6 +29,11 @@ class Session:
         self.key_enc: bytes = b""
         self.key_mac: bytes = b""
         self.ti: bytes = b""
+        self.cmd_counter: int = 0
+
+    @property
+    def authenticated(self):
+        return all([self.key_enc, self.key_mac, self.ti])
 
 
 class NFCWriter(Protocol):

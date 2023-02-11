@@ -51,7 +51,7 @@ def burn_02_auth_challenge(session):
     :param Session session: Session object (use key 00000000000000000000000000000000 for new cards)
     :return: List of APDU commands (hex) to initiate authentication procedure
     """
-    # IsoSelectFile - 00A4040007D276000085010100
+    # MAYBE (IsoSelectFile - 00A4040007D276000085010100)
     # AuthenticateFirst - 9071000005000300000000
     return []
 
@@ -81,3 +81,51 @@ def burn_04_auth_finalize(session, response):
     :param response: Response from burn_03 command
     """
     return None
+
+
+def burn_05_configure_picc(session):
+    # type: (bl.Session) -> list[str]
+    """
+    Configure PICC mirroring, SUN Messaging and other stuff
+    """
+    return []
+
+
+def burn_06_change_keys(session, keys):
+    # type: (bl.Session, list[str]) -> list[str]
+    """
+    Change Keys
+    """
+    assert len(keys) == 5, "Exactly 5 keys required"
+    assert session.authenticated, "Authenticated session required"
+    return []
+
+
+def wipe_01_auth_challenge(session):
+    # type: (bl.Session) -> list[str]
+    pass
+
+
+def wipe_02_auth_response(session, response):
+    # type: (bl.Session, str) -> list[str]
+    pass
+
+
+def wipe_03_auth_finalize(session, response):
+    # type: (bl.Session, str) -> None
+    pass
+
+
+def wipe_04_reset_picc(session):
+    # type: (bl.Session) -> list[str]
+    pass
+
+
+def wipe_05_changekeys(session, keys):
+    # type: (bl.Session, list[str]) -> list[str]
+    pass
+
+
+def wipe_06_clear_ndef():
+    # type: () -> list[str]
+    pass
