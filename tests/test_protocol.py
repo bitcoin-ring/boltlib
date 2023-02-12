@@ -49,6 +49,7 @@ def test_burn_04_auth_finalize(session):
     assert session.authenticated
     assert session.rnd_a == "5A10C44FCF6132B6ADD93B9DBBEA05EA"
     assert session.rnd_b == "9BB1FF456458597F96520DC7E56ECA22"
+    assert session.ti == "AB3C4643"
     assert session.key_mac == "3D851559D90F4BC2A7B2577ED02BC2AC"
     assert session.key_enc == "0773EC0F4A6584E4C8C2010F759196A3"
     assert session.cmd_counter == 0
