@@ -3,7 +3,7 @@ from typing import Protocol
 
 __all__ = [
     "UrlTemplate",
-    "Session",
+    "AuthSession",
     "NFCWriter",
 ]
 
@@ -18,7 +18,7 @@ class UrlTemplate:
         self.cmac_offset = cmac_offset
 
 
-class Session:
+class AuthSession:
     """Authenticated NFC Session data"""
 
     def __init__(self, key="00000000000000000000000000000000"):

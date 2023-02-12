@@ -7,7 +7,18 @@ __all__ = [
     "burn_02_auth_challenge",
     "burn_03_auth_response",
     "burn_04_auth_finalize",
+    "burn_05_configure_picc",
+    "burn_06_change_keys",
 ]
+
+
+# NDEF application identifier (AID) / dedicated file name (DF-name)
+ISO_7816_DF_NAME = "D2760000850101"
+ISO_SELECT_FILE_CLA_INS = "00A4"
+ISO_SELECT_FILE_P1_BY_DF_NAME = "04"
+ISO_SELECT_FILE_P2_RETURN_FCI = "00"
+ISO_SELECT_FILE_LC = "07"
+
 
 APDU_SELECT_NTAG_424 = "00A4040007D276000085010100"
 APDU_SELECT_NDEF = "00A4000002E10400"
@@ -22,7 +33,7 @@ def burn(url, keys, nfc_writer):
     nfc_writer.write(apdus)
 
     # Authenticate
-    session = bl.Session()
+    session = bl.AuthSession()
     apdus = burn_02_auth_challenge(session)
     response = nfc_writer.write(apdus)
     apdus = burn_03_auth_response(session, response)
@@ -53,11 +64,11 @@ def burn_01_write_url(url):
 
 
 def burn_02_auth_challenge(session):
-    # type: (bl.Session) -> list[str]
+    # type: (bl.AuthSession) -> list[str]
     """
     Create a list of APDU commands to request an authentication challenge from NFC device.
 
-    :param Session session: Session object (use key 00000000000000000000000000000000 for new cards)
+    :param AuthSession session: AuthSession object (use key 00000000000000000000000000000000 for new cards)
     :return: List of APDU commands (hex) to initiate authentication procedure
     """
     # MAYBE (IsoSelectFile - 00A4040007D276000085010100)
@@ -66,13 +77,13 @@ def burn_02_auth_challenge(session):
 
 
 def burn_03_auth_response(session, response):
-    # type: (bl.Session, str) -> list[str]
+    # type: (bl.AuthSession, str) -> list[str]
     """
     Create ADPU commands to respond to auth challenge.
 
-    Note: will set rnd_a & rnd_b properties on `Session`
+    Note: will set rnd_a & rnd_b properties on `AuthSession`
 
-    :param Session session: Session object
+    :param AuthSession session: AuthSession object
     :param str response: The response from burn_02 command
     :return:
     """
@@ -80,20 +91,20 @@ def burn_03_auth_response(session, response):
 
 
 def burn_04_auth_finalize(session, response):
-    # type: (bl.Session, str) -> None
+    # type: (bl.AuthSession, str) -> None
     """
-    Finalize `Session` object
+    Finalize `AuthSession` object
 
-    Note: will set `key_enc`, `key_mac` and `ti` properties on `Session`
+    Note: will set `key_enc`, `key_mac` and `ti` properties on `AuthSession`
 
-    :param Session session: Session object
+    :param AuthSession session: AuthSession object
     :param response: Response from burn_03 command
     """
     return None
 
 
 def burn_05_configure_picc(session, url):
-    # type: (bl.Session, str) -> list[str]
+    # type: (bl.AuthSession, str) -> list[str]
     """
     Configure PICC mirroring, SUN Messaging and other stuff
     """
@@ -101,7 +112,7 @@ def burn_05_configure_picc(session, url):
 
 
 def burn_06_change_keys(session, keys):
-    # type: (bl.Session, list[str]) -> list[str]
+    # type: (bl.AuthSession, list[str]) -> list[str]
     """
     Change Keys
     """
@@ -111,27 +122,27 @@ def burn_06_change_keys(session, keys):
 
 
 def wipe_01_auth_challenge(session):
-    # type: (bl.Session) -> list[str]
+    # type: (bl.AuthSession) -> list[str]
     pass
 
 
 def wipe_02_auth_response(session, response):
-    # type: (bl.Session, str) -> list[str]
+    # type: (bl.AuthSession, str) -> list[str]
     pass
 
 
 def wipe_03_auth_finalize(session, response):
-    # type: (bl.Session, str) -> None
+    # type: (bl.AuthSession, str) -> None
     pass
 
 
 def wipe_04_reset_picc(session):
-    # type: (bl.Session) -> list[str]
+    # type: (bl.AuthSession) -> list[str]
     pass
 
 
 def wipe_05_changekeys(session, keys):
-    # type: (bl.Session, list[str]) -> list[str]
+    # type: (bl.AuthSession, list[str]) -> list[str]
     pass
 
 
