@@ -11,15 +11,6 @@ __all__ = [
     "burn_06_change_keys",
 ]
 
-
-# NDEF application identifier (AID) / dedicated file name (DF-name)
-ISO_7816_DF_NAME = "D2760000850101"
-ISO_SELECT_FILE_CLA_INS = "00A4"
-ISO_SELECT_FILE_P1_BY_DF_NAME = "04"
-ISO_SELECT_FILE_P2_RETURN_FCI = "00"
-ISO_SELECT_FILE_LC = "07"
-
-
 APDU_SELECT_NTAG_424 = "00A4040007D276000085010100"
 APDU_SELECT_NDEF = "00A4000002E10400"
 
@@ -58,8 +49,14 @@ def burn_01_write_url(url):
     :return: List of APDU commands (hex) to write the URI Template to the NFC device
     """
     apdus = [APDU_SELECT_NTAG_424, APDU_SELECT_NDEF]
+
+    # TODO Dynamic Header Calculation
+    header = "00D68400840082D1017E5500"
+
     url_obj = bl.build_url_template(url)
-    ...
+    payload = url_obj.url.encode("utf-8").hex().upper()
+    apdu = header + payload
+    apdus.append(apdu)
     return apdus
 
 

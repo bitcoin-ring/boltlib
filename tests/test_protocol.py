@@ -13,7 +13,6 @@ keys = [
 ]
 
 
-@pytest.mark.skip(reason="Todo")
 def test_burn_01_write_url():
     apdus = bl.burn_01_write_url(url)
     assert apdus == [
