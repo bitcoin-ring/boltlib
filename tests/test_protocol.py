@@ -55,7 +55,7 @@ def test_burn_04_auth_finalize(session):
 
 
 @pytest.mark.skip(reason="Todo")
-def test_burn_05(session):
+def test_burn_05_configure_picc(session):
     assert session.cmd_counter == 0
     apdus = bl.burn_05_configure_picc(session, url)
     assert apdus == ["905F00001902A20C420788C44DAEEEBD74112286FFDE6B900201EFA2F0EE00"]
