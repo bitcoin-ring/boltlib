@@ -49,13 +49,31 @@ def burn_01_write_url(url):
     :return: List of APDU commands (hex) to write the URI Template to the NFC device
     """
     apdus = [APDU_SELECT_NTAG_424, APDU_SELECT_NDEF]
-
-    # TODO Dynamic Header Calculation
-    header = "00D68400840082D1017E5500"
-
     url_obj = bl.build_url_template(url)
+
+    # Command Header
+    cla_ins = "00D6"
+    p1_p2 = "0000"
+    url_len = len(url_obj.url)
+    lc = int.to_bytes(url_len + 7, 1, "big", signed=False).hex().upper()
+
+    cmd_header = cla_ins + p1_p2 + lc
+
+    # NDEF Header
+    # header = "00D6 0000 84 | 0082 D1 01 7E 55 00"
+    ndef_length = int.to_bytes(url_len + 5, 2, "big", signed=False).hex().upper()
+    tnf = "D1"
+    type_len = "01"
+    payload_len = int.to_bytes(url_len + 1, 1, "big", signed=False).hex().upper()
+    rec_type = "55"  # Uri
+    uri_type = "00"  # No scheme prepending
+
+    ndef_header = ndef_length + tnf + type_len + payload_len + rec_type + uri_type
+
+    full_header = cmd_header + ndef_header
     payload = url_obj.url.encode("utf-8").hex().upper()
-    apdu = header + payload
+
+    apdu = full_header + payload
     apdus.append(apdu)
     return apdus
 
