@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """BoltCard Burn & Wipe protocol functions (sans I/O)"""
-import secrets
 from Cryptodome.Cipher import AES
 
 import boltlib as bl
@@ -94,7 +93,7 @@ def burn_02_auth_challenge(session):
     return [APDU_SELECT_NTAG_424, APDU_AUTH_FIRST_PART_1]
 
 
-def burn_03_auth_response(session, response, rnd_a=b""):
+def burn_03_auth_response(session, response):
     # type: (bl.AuthSession, str, bytes) -> list[str]
     """
     Create ADPU commands to respond to auth challenge.
@@ -103,8 +102,7 @@ def burn_03_auth_response(session, response, rnd_a=b""):
 
     :param AuthSession session: AuthSession object
     :param str response: The response from burn_02 command
-    :param bytes rnd_a: Optional 16 bytes of randomness (only needed for testing)
-    :return:
+    :return: List of APDUs
     """
     # Decrypt Challenge - The challenge is the 16 byte RND_B from PICC
     IVbytes = b"\x00" * 16
@@ -115,7 +113,7 @@ def burn_03_auth_response(session, response, rnd_a=b""):
 
     # Answer challenge with our own secret (RND_A) + rotated RND_B
     rnd_b_rot = bl.rotate_bytes(rnd_b, -1)
-    rnd_a = rnd_a or secrets.token_bytes(16)
+    rnd_a = session.rnd_a
     answer = rnd_a + rnd_b_rot
     cipher = AES.new(key, AES.MODE_CBC, IVbytes)
     encrypted_answer = cipher.encrypt(answer)

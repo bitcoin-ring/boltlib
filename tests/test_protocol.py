@@ -30,13 +30,12 @@ def test_burn_02_auth_challenge(session):
 
 
 def test_burn_03_auth_response(session):
-    rnd_a = bytes.fromhex("5A10C44FCF6132B6ADD93B9DBBEA05EA")
+    session.rnd_a = bytes.fromhex("5A10C44FCF6132B6ADD93B9DBBEA05EA")
     response = "FE1DCEA6D6AF8721040C914674ECC1B191AF"
-    apdus = bl.burn_03_auth_response(session, response, rnd_a)
+    apdus = bl.burn_03_auth_response(session, response)
     assert apdus == [
         "90AF000020738008B0506A2BD29A129B4F2FA94A3C72632AD7F3288C1590B3C2BB28C8948700"
     ]
-    assert session.rnd_a == rnd_a
     assert session.rnd_b == bytes.fromhex("9BB1FF456458597F96520DC7E56ECA22")
     assert session.cmd_counter == 0
     assert session.authenticated is False
