@@ -22,35 +22,35 @@ def test_burn_01_write_url():
     ]
 
 
-@pytest.mark.skip(reason="Todo")
 def test_burn_02_auth_challenge(session):
     apdus = bl.burn_02_auth_challenge(session)
     assert apdus == ["00A4040007D276000085010100", "9071000005000300000000"]
     assert session.cmd_counter == 0
-    assert session.authenticated == False
+    assert session.authenticated is False
 
 
-@pytest.mark.skip(reason="Todo")
 def test_burn_03_auth_response(session):
+    rnd_a = bytes.fromhex("5A10C44FCF6132B6ADD93B9DBBEA05EA")
     response = "FE1DCEA6D6AF8721040C914674ECC1B191AF"
-    apdus = bl.burn_03_auth_response(session, response)
+    apdus = bl.burn_03_auth_response(session, response, rnd_a)
     assert apdus == [
         "90AF000020738008B0506A2BD29A129B4F2FA94A3C72632AD7F3288C1590B3C2BB28C8948700"
     ]
+    assert session.rnd_a == rnd_a
+    assert session.rnd_b == bytes.fromhex("9BB1FF456458597F96520DC7E56ECA22")
     assert session.cmd_counter == 0
     assert session.authenticated is False
 
 
-@pytest.mark.skip(reason="Todo")
 def test_burn_04_auth_finalize(session):
     response = "3D24888F864B60E14CD26E88C060989946EFD72497EB4D3ABC5D3E48FD9DFCEB9100"
     bl.burn_04_auth_finalize(session, response)
+    assert session.rnd_a.hex().upper() == "5A10C44FCF6132B6ADD93B9DBBEA05EA"
+    assert session.rnd_b.hex().upper() == "9BB1FF456458597F96520DC7E56ECA22"
+    assert session.ti.hex().upper() == "AB3C4643"
+    assert session.key_mac.hex().upper() == "3D851559D90F4BC2A7B2577ED02BC2AC"
+    assert session.key_enc.hex().upper() == "0773EC0F4A6584E4C8C2010F759196A3"
     assert session.authenticated
-    assert session.rnd_a == "5A10C44FCF6132B6ADD93B9DBBEA05EA"
-    assert session.rnd_b == "9BB1FF456458597F96520DC7E56ECA22"
-    assert session.ti == "AB3C4643"
-    assert session.key_mac == "3D851559D90F4BC2A7B2577ED02BC2AC"
-    assert session.key_enc == "0773EC0F4A6584E4C8C2010F759196A3"
     assert session.cmd_counter == 0
 
 

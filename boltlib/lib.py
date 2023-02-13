@@ -1,7 +1,16 @@
 # -*- coding: utf-8 -*-
+from collections import deque
+from typing import Tuple
+
+from Cryptodome.Cipher import AES
+from Cryptodome.Hash import CMAC
 import boltlib as bl
 
-__all__ = ["build_url_template"]
+__all__ = [
+    "build_url_template",
+    "rotate_bytes",
+    "derive_session_keys",
+]
 
 
 def build_url_template(url):
@@ -38,3 +47,32 @@ def build_url_template(url):
         raise ValueError("expanded url must be shorter than 250 characters")
 
     return bl.UrlTemplate(url, picc_offset, cmac_offset)
+
+
+def rotate_bytes(b, n):
+    # type: (bytes, int) -> bytes
+    """Return new bytes rotated by `n`. (Negative `n` for left rotation)"""
+    d = deque(b)
+    d.rotate(n)
+    return bytes(d)
+
+
+def xor(b1, b2):
+    # type: (bytes, bytes) -> bytes
+    """XOR byte sequences of even length"""
+    return bytes(x ^ y for x, y in zip(b1, b2))
+
+
+def derive_session_keys(key, rnd_a, rnd_b):
+    # type: (bytes, bytes, bytes) -> Tuple[bytes, bytes]
+    """Derive and return SessionKeys as Tuple of (SesAuthENCKey, SesAuthMACKey)"""
+    f1 = rnd_a[0:2]
+    f2 = rnd_a[2:8]
+    f3 = rnd_b[0:6]
+    f4 = rnd_b[6:16]
+    f5 = rnd_a[8:16]
+    SV1 = bytes.fromhex("A55A00010080") + f1 + xor(f2, f3) + f4 + f5
+    SV2 = bytes.fromhex("5AA500010080") + f1 + xor(f2, f3) + f4 + f5
+    enc = CMAC.new(key, SV1, ciphermod=AES).digest()
+    mac = CMAC.new(key, SV2, ciphermod=AES).digest()
+    return enc, mac

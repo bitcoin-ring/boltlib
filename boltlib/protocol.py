@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 """BoltCard Burn & Wipe protocol functions (sans I/O)"""
+import secrets
+from Cryptodome.Cipher import AES
+
 import boltlib as bl
 
 __all__ = [
@@ -11,8 +14,10 @@ __all__ = [
     "burn_06_change_keys",
 ]
 
+DEFAULT_KEY = "00000000000000000000000000000000"
 APDU_SELECT_NTAG_424 = "00A4040007D276000085010100"
 APDU_SELECT_NDEF = "00A4000002E10400"
+APDU_AUTH_FIRST_PART_1 = "9071000005000300000000"
 
 
 def burn(url, keys, nfc_writer):
@@ -83,16 +88,14 @@ def burn_02_auth_challenge(session):
     """
     Create a list of APDU commands to request an authentication challenge from NFC device.
 
-    :param AuthSession session: AuthSession object (use key 00000000000000000000000000000000 for new cards)
+    :param AuthSession session: AuthSession object (use zero-key for new cards)
     :return: List of APDU commands (hex) to initiate authentication procedure
     """
-    # MAYBE (IsoSelectFile - 00A4040007D276000085010100)
-    # AuthenticateFirst - 9071000005000300000000
-    return []
+    return [APDU_SELECT_NTAG_424, APDU_AUTH_FIRST_PART_1]
 
 
-def burn_03_auth_response(session, response):
-    # type: (bl.AuthSession, str) -> list[str]
+def burn_03_auth_response(session, response, rnd_a=b""):
+    # type: (bl.AuthSession, str, bytes) -> list[str]
     """
     Create ADPU commands to respond to auth challenge.
 
@@ -100,9 +103,29 @@ def burn_03_auth_response(session, response):
 
     :param AuthSession session: AuthSession object
     :param str response: The response from burn_02 command
+    :param bytes rnd_a: Optional 16 bytes of randomness (only needed for testing)
     :return:
     """
-    return []
+    # Decrypt Challenge - The challenge is the 16 byte RND_B from PICC
+    IVbytes = b"\x00" * 16
+    key = bytes.fromhex(DEFAULT_KEY)
+    cipher = AES.new(key, AES.MODE_CBC, IVbytes)
+    response = bytearray(bytes.fromhex(response[:-4]))
+    rnd_b = cipher.decrypt(response)
+
+    # Answer challenge with our own secret (RND_A) + rotated RND_B
+    rnd_b_rot = bl.rotate_bytes(rnd_b, -1)
+    rnd_a = rnd_a or secrets.token_bytes(16)
+    answer = rnd_a + rnd_b_rot
+    cipher = AES.new(key, AES.MODE_CBC, IVbytes)
+    encrypted_answer = cipher.encrypt(answer)
+    prefix = b"\x90\xAF\x00\x00\x20"
+    postfix = b"\x00"
+    apdu = bytearray(prefix + encrypted_answer + postfix).hex().upper()
+    session.rnd_a = rnd_a
+    session.rnd_b = rnd_b
+    # log.debug(f"> AUTH 2 - PCD encrypted answer: {apdu.hex().upper()} - {len(apdu)}")
+    return [apdu]
 
 
 def burn_04_auth_finalize(session, response):
@@ -115,7 +138,15 @@ def burn_04_auth_finalize(session, response):
     :param AuthSession session: AuthSession object
     :param response: Response from burn_03 command
     """
-    return None
+    IVbytes = b"\x00" * 16
+    key = bytes.fromhex(DEFAULT_KEY)
+    cipher = AES.new(key, AES.MODE_CBC, IVbytes)
+    response = bytearray(bytes.fromhex(response[:-4]))
+    decrypted_auth_response = cipher.decrypt(response)
+    session.ti = decrypted_auth_response[:4]
+    session.key_enc, session.key_mac = bl.derive_session_keys(
+        key, session.rnd_a, session.rnd_b
+    )
 
 
 def burn_05_configure_picc(session, url):
