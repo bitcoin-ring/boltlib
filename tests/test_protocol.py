@@ -53,7 +53,6 @@ def test_burn_04_auth_finalize(session):
     assert session.cmd_counter == 0
 
 
-@pytest.mark.skip(reason="Todo")
 def test_burn_05_configure_picc(session):
     assert session.cmd_counter == 0
     apdus = bl.burn_05_configure_picc(session, url)
@@ -72,3 +71,11 @@ def test_burn_06_change_keys(session):
         "90C400002901C1F6723DEC5E6C447411B0E85025A87A74DBA553BE1057ACBF71C4E75303805F24CEC783560388D900",
     ]
     assert session.cmd_counter == 5
+
+
+def test_cmac_short():
+    key = bytes.fromhex("ED1A341945932BC077FFEF35D26B1156")
+    payload = bytes.fromhex(
+        "C40100C2B3587604DBABCE9DB47DF89C7C46CCFBCD60A677DBA48A5C4EDE5BF99B6279C8F2EDA808"
+    )
+    assert bl.cmac_short(key, payload).hex().upper() == "A8B7ED6ACACEB72C"

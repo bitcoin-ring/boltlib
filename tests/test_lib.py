@@ -48,3 +48,8 @@ def test_build_url_template_url_too_long():
     url = f"lnurlw://card.yourdomain.com/ln/{'x' * 250}"
     with pytest.raises(ValueError):
         boltlib.build_url_template(url)
+
+
+def test_pad_padding():
+    unpadded = b"\x12\x12\x12\x12"
+    assert boltlib.pad(unpadded, 8) == b"\x12\x12\x12\x12\x80\x00\x00\x00"

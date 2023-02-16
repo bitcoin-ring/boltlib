@@ -10,6 +10,7 @@ __all__ = [
     "build_url_template",
     "rotate_bytes",
     "derive_session_keys",
+    "pad",
 ]
 
 
@@ -76,3 +77,15 @@ def derive_session_keys(key, rnd_a, rnd_b):
     enc = CMAC.new(key, SV1, ciphermod=AES).digest()
     mac = CMAC.new(key, SV2, ciphermod=AES).digest()
     return enc, mac
+
+
+def pad(data, blocksize):
+    # add padding
+    rlen = len(data)
+    elen = len(data) % blocksize
+    if elen:
+        data += bytearray(blocksize - elen)
+        fslist = bytearray(data)
+        fslist[rlen] = 0x80
+        data = fslist
+    return data

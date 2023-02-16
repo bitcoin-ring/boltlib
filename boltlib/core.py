@@ -29,6 +29,7 @@ __all__ = [
     "read_uri",
     "write_uri",
     "Response",
+    "cmac_short",
 ]
 
 import boltlib

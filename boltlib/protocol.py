@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """BoltCard Burn & Wipe protocol functions (sans I/O)"""
 from Cryptodome.Cipher import AES
+from Cryptodome.Hash import CMAC
 
 import boltlib as bl
 
@@ -152,7 +153,25 @@ def burn_05_configure_picc(session, url):
     """
     Configure PICC mirroring, SUN Messaging and other stuff
     """
-    return []
+    url_obj = bl.build_url_template(url)
+    picc_offset = int.to_bytes(url_obj.picc_offset, 3, "little", signed=False)
+    cmac_offset = int.to_bytes(url_obj.cmac_offset, 3, "little", signed=False)
+    prefix = b"\x90\x5F\x00\x00\x19\x02"
+    filesettings = b"\x40\x00\xE0\xC1\xFF\x12" + picc_offset + cmac_offset + cmac_offset
+    # caclulate iv
+    cmd_counter = int.to_bytes(session.cmd_counter, 2, "little", signed=False)
+    ivd = bytes.fromhex("A55A") + session.ti + cmd_counter + b"\x00" * 8
+    ivv = b"\x00" * AES.block_size
+    cipher = AES.new(session.key_enc, AES.MODE_CBC, iv=ivv)
+    ive = cipher.encrypt(ivd)
+    cipher = AES.new(session.key_enc, AES.MODE_CBC, iv=ive)
+    encrypted_filesettings = cipher.encrypt(bl.pad(filesettings, AES.block_size))
+    cmacin = b"\x5f" + cmd_counter + session.ti + b"\x02" + encrypted_filesettings
+    encrypted_filesettings += bl.cmac_short(session.key_mac, cmacin)
+    postfix = b"\x00"
+    apdu = (prefix + encrypted_filesettings + postfix).hex().upper()
+    session.cmd_counter += 1
+    return [apdu]
 
 
 def burn_06_change_keys(session, keys):
