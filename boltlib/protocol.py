@@ -153,7 +153,8 @@ def burn_05_configure_picc(session, url):
     url_obj = bl.build_url_template(url)
     picc_offset = int.to_bytes(url_obj.picc_offset, 3, "little", signed=False)
     cmac_offset = int.to_bytes(url_obj.cmac_offset, 3, "little", signed=False)
-    prefix = b"\x90\x5F\x00\x00\x19\x02"
+    prefix = b"\x90\x5F\x00\x00\x19"
+    dataheader = b"\x02"  # Filenumber
     filesettings = b"\x40\x00\xE0\xC1\xFF\x12" + picc_offset + cmac_offset + cmac_offset
     encrypted_filesettings = bl.encrypt_data(session, filesettings)
     cmacin = (
