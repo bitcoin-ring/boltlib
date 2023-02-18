@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import binascii
 from collections import deque
 from typing import Tuple
 
@@ -11,6 +12,9 @@ __all__ = [
     "rotate_bytes",
     "derive_session_keys",
     "pad",
+    "encrypt_data",
+    "xor",
+    "jam_crc32",
 ]
 
 
@@ -60,7 +64,8 @@ def rotate_bytes(b, n):
 
 def xor(b1, b2):
     # type: (bytes, bytes) -> bytes
-    """XOR byte sequences of even length"""
+    """XOR byte sequences of same length"""
+    assert len(b1) == len(b2), "Can´t XOR diffently sized data"
     return bytes(x ^ y for x, y in zip(b1, b2))
 
 
@@ -80,7 +85,8 @@ def derive_session_keys(key, rnd_a, rnd_b):
 
 
 def pad(data, blocksize):
-    # add padding
+    # type: (bytes, int) -> bytes
+    """ISO 7816 padding"""
     rlen = len(data)
     elen = len(data) % blocksize
     if elen:
@@ -89,3 +95,20 @@ def pad(data, blocksize):
         fslist[rlen] = 0x80
         data = fslist
     return data
+
+
+def encrypt_data(session, data):
+    # type: (bl.AuthSession,bytes) -> bytes
+    """Encrypt data for CommMode.FULL"""
+    ivd = bytes.fromhex("A55A") + session.ti + session.cmd_counter_bytes + b"\x00" * 8
+    ivv = b"\x00" * AES.block_size
+    cipher = AES.new(session.key_enc, AES.MODE_CBC, iv=ivv)
+    ive = cipher.encrypt(ivd)
+    cipher = AES.new(session.key_enc, AES.MODE_CBC, iv=ive)
+    return cipher.encrypt(bl.pad(data, AES.block_size))
+
+
+def jam_crc32(data):
+    # type: (bytes) -> bytes
+    h = int("0b" + "1" * 32, 2) - binascii.crc32(data)
+    return h.to_bytes(4, "little", signed=False)

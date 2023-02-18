@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """BoltCard Burn & Wipe protocol functions (sans I/O)"""
 from Cryptodome.Cipher import AES
-from Cryptodome.Hash import CMAC
+
 
 import boltlib as bl
 
@@ -30,7 +30,7 @@ def burn(url, keys, nfc_writer):
 
     # Authenticate
     session = bl.AuthSession()
-    apdus = burn_02_auth_challenge(session)
+    apdus = burn_02_auth_challenge()
     response = nfc_writer.write(apdus)
     apdus = burn_03_auth_response(session, response)
     response = nfc_writer.write(apdus)
@@ -83,12 +83,10 @@ def burn_01_write_url(url):
     return apdus
 
 
-def burn_02_auth_challenge(session):
-    # type: (bl.AuthSession) -> list[str]
+def burn_02_auth_challenge():
+    # type: () -> list[str]
     """
     Create a list of APDU commands to request an authentication challenge from NFC device.
-
-    :param AuthSession session: AuthSession object (use zero-key for new cards)
     :return: List of APDU commands (hex) to initiate authentication procedure
     """
     return [APDU_SELECT_NTAG_424, APDU_AUTH_FIRST_PART_1]
@@ -123,7 +121,6 @@ def burn_03_auth_response(session, response):
     apdu = bytearray(prefix + encrypted_answer + postfix).hex().upper()
     session.rnd_a = rnd_a
     session.rnd_b = rnd_b
-    # log.debug(f"> AUTH 2 - PCD encrypted answer: {apdu.hex().upper()} - {len(apdu)}")
     return [apdu]
 
 
@@ -158,30 +155,58 @@ def burn_05_configure_picc(session, url):
     cmac_offset = int.to_bytes(url_obj.cmac_offset, 3, "little", signed=False)
     prefix = b"\x90\x5F\x00\x00\x19\x02"
     filesettings = b"\x40\x00\xE0\xC1\xFF\x12" + picc_offset + cmac_offset + cmac_offset
-    # caclulate iv
-    cmd_counter = int.to_bytes(session.cmd_counter, 2, "little", signed=False)
-    ivd = bytes.fromhex("A55A") + session.ti + cmd_counter + b"\x00" * 8
-    ivv = b"\x00" * AES.block_size
-    cipher = AES.new(session.key_enc, AES.MODE_CBC, iv=ivv)
-    ive = cipher.encrypt(ivd)
-    cipher = AES.new(session.key_enc, AES.MODE_CBC, iv=ive)
-    encrypted_filesettings = cipher.encrypt(bl.pad(filesettings, AES.block_size))
-    cmacin = b"\x5f" + cmd_counter + session.ti + b"\x02" + encrypted_filesettings
+    encrypted_filesettings = bl.encrypt_data(session, filesettings)
+    cmacin = (
+        b"\x5f"
+        + session.cmd_counter_bytes
+        + session.ti
+        + dataheader
+        + encrypted_filesettings
+    )
     encrypted_filesettings += bl.cmac_short(session.key_mac, cmacin)
     postfix = b"\x00"
-    apdu = (prefix + encrypted_filesettings + postfix).hex().upper()
+    apdu = (prefix + dataheader + encrypted_filesettings + postfix).hex().upper()
     session.cmd_counter += 1
     return [apdu]
 
 
 def burn_06_change_keys(session, keys):
     # type: (bl.AuthSession, list[str]) -> list[str]
-    """
-    Change Keys
-    """
+    """Change Keys"""
     assert len(keys) == 5, "Exactly 5 keys required"
     assert session.authenticated, "Authenticated session required"
-    return []
+    apdus = []
+    currentkey = bytes.fromhex(DEFAULT_KEY)
+    key_no = 4
+    for key in reversed(keys):
+        prefix = b"\x90\xc4\x00\x00"
+        newkey = bytes.fromhex(key)
+        keyversion = b"\x01"
+        if key_no != 0:
+            xorkey = bl.xor(newkey, currentkey)
+            keycrc32 = bl.jam_crc32(newkey)
+            print(f"\nCRC: {keycrc32.hex().upper()}")
+            keydata = xorkey + keyversion + keycrc32
+            print(f"\nKEYDATA: {keydata.hex().upper()}")
+        else:
+            keydata = newkey + keyversion
+        dataheader = key_no.to_bytes(1, "little", signed=False)
+        encrypted_keydata = bl.encrypt_data(session, keydata)
+        cmacin = (
+            b"\xc4"
+            + session.cmd_counter_bytes
+            + session.ti
+            + dataheader
+            + encrypted_keydata
+        )
+        encrypted_keydata += bl.cmac_short(session.key_mac, cmacin)
+        print(encrypted_keydata.hex())
+        commandpayload = dataheader + encrypted_keydata + b"\x00"
+        le = len(commandpayload[:-1]).to_bytes(1, "little", signed=False)
+        apdus.append((prefix + le + commandpayload).hex().upper())
+        session.cmd_counter += 1
+        key_no -= 1
+    return apdus
 
 
 def wipe_01_auth_challenge(session):

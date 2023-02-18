@@ -33,6 +33,10 @@ class AuthSession:
         self.cmd_counter: int = 0
 
     @property
+    def cmd_counter_bytes(self):
+        return int.to_bytes(self.cmd_counter, 2, "little", signed=False)
+
+    @property
     def authenticated(self):
         return all([self.key_enc, self.key_mac, self.ti])
 

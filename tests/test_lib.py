@@ -53,3 +53,16 @@ def test_build_url_template_url_too_long():
 def test_pad_padding():
     unpadded = b"\x12\x12\x12\x12"
     assert boltlib.pad(unpadded, 8) == b"\x12\x12\x12\x12\x80\x00\x00\x00"
+
+
+def test_cmac_short():
+    key = bytes.fromhex("ED1A341945932BC077FFEF35D26B1156")
+    payload = bytes.fromhex(
+        "C40100C2B3587604DBABCE9DB47DF89C7C46CCFBCD60A677DBA48A5C4EDE5BF99B6279C8F2EDA808"
+    )
+    assert boltlib.cmac_short(key, payload).hex().upper() == "A8B7ED6ACACEB72C"
+
+
+def test_jam_crc32():
+    data = b"\x23\xF2\x99\x9F\x7A\x95\x17\x24\x95\x49\xDC\xFE\x57\xED\x2C\x57"
+    assert boltlib.jam_crc32(data).hex().upper() == "6E84E3D6"
