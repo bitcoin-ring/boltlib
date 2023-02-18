@@ -93,7 +93,7 @@ def burn_02_auth_challenge():
 
 
 def burn_03_auth_response(session, response):
-    # type: (bl.AuthSession, str, bytes) -> list[str]
+    # type: (bl.AuthSession, str) -> list[str]
     """
     Create ADPU commands to respond to auth challenge.
 
