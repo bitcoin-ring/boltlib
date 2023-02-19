@@ -2,10 +2,8 @@
 import binascii
 from collections import deque
 from typing import Tuple
-
-from Cryptodome.Cipher import AES
-from Cryptodome.Hash import CMAC
 import boltlib as bl
+
 
 __all__ = [
     "build_url_template",
@@ -15,6 +13,8 @@ __all__ = [
     "encrypt_data",
     "xor",
     "jam_crc32",
+    "aes_decrypt",
+    "aes_encrypt",
 ]
 
 
@@ -79,12 +79,12 @@ def derive_session_keys(key, rnd_a, rnd_b):
     f5 = rnd_a[8:16]
     SV1 = bytes.fromhex("A55A00010080") + f1 + xor(f2, f3) + f4 + f5
     SV2 = bytes.fromhex("5AA500010080") + f1 + xor(f2, f3) + f4 + f5
-    enc = CMAC.new(key, SV1, ciphermod=AES).digest()
-    mac = CMAC.new(key, SV2, ciphermod=AES).digest()
+    enc = cmac_sign(key, msg=SV1)
+    mac = cmac_sign(key, msg=SV2)
     return enc, mac
 
 
-def pad(data, blocksize):
+def pad(data, blocksize=16):
     # type: (bytes, int) -> bytes
     """ISO 7816 padding"""
     rlen = len(data)
@@ -98,17 +98,40 @@ def pad(data, blocksize):
 
 
 def encrypt_data(session, data):
-    # type: (bl.AuthSession,bytes) -> bytes
+    # type: (bl.AuthSession, bytes) -> bytes
     """Encrypt data for CommMode.FULL"""
     ivd = bytes.fromhex("A55A") + session.ti + session.cmd_counter_bytes + b"\x00" * 8
-    ivv = b"\x00" * AES.block_size
-    cipher = AES.new(session.key_enc, AES.MODE_CBC, iv=ivv)
-    ive = cipher.encrypt(ivd)
-    cipher = AES.new(session.key_enc, AES.MODE_CBC, iv=ive)
-    return cipher.encrypt(bl.pad(data, AES.block_size))
+    ivv = b"\x00" * 16
+    ive = aes_encrypt(session.key_enc, iv=ivv, data=ivd)
+    msg = aes_encrypt(session.key_enc, ive, data)
+    return msg
 
 
 def jam_crc32(data):
     # type: (bytes) -> bytes
     h = int("0b" + "1" * 32, 2) - binascii.crc32(data)
     return h.to_bytes(4, "little", signed=False)
+
+
+def aes_encrypt(key, iv, data):
+    # type: (bytes, bytes, bytes) -> bytes
+    from Cryptodome.Cipher import AES
+
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    return cipher.encrypt(pad(data))
+
+
+def aes_decrypt(key, iv, data):
+    # type: (bytes, bytes, bytes) -> bytes
+    from Cryptodome.Cipher import AES
+
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    return cipher.decrypt(data)
+
+
+def cmac_sign(key, msg):
+    # type: (bytes, bytes) -> bytes
+    from Cryptodome.Cipher import AES
+    from Cryptodome.Hash import CMAC
+
+    return CMAC.new(key, msg, ciphermod=AES).digest()

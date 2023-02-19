@@ -38,7 +38,7 @@ class AuthSession:
 
     @property
     def authenticated(self):
-        return all([self.key_enc, self.key_mac, self.ti])
+        return bool(self.ti)
 
 
 class NFCWriter(Protocol):

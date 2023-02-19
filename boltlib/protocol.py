@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
 """BoltCard Burn & Wipe protocol functions (sans I/O)"""
-from Cryptodome.Cipher import AES
-
-
 import boltlib as bl
+
 
 __all__ = [
     "burn_01_write_url",
@@ -110,18 +108,16 @@ def burn_03_auth_response(session, response):
     :return: List of APDUs
     """
     # Decrypt Challenge - The challenge is the 16 byte RND_B from PICC
-    IVbytes = b"\x00" * 16
+    iv = b"\x00" * 16
     key = bytes.fromhex(DEFAULT_KEY)
-    cipher = AES.new(key, AES.MODE_CBC, IVbytes)
-    response = bytearray(bytes.fromhex(response[:-4]))
-    rnd_b = cipher.decrypt(response)
+    data = bytes.fromhex(response[:-4])
+    rnd_b = bl.aes_decrypt(key, iv, data)
 
     # Answer challenge with our own secret (RND_A) + rotated RND_B
     rnd_b_rot = bl.rotate_bytes(rnd_b, -1)
     rnd_a = session.rnd_a
     answer = rnd_a + rnd_b_rot
-    cipher = AES.new(key, AES.MODE_CBC, IVbytes)
-    encrypted_answer = cipher.encrypt(answer)
+    encrypted_answer = bl.aes_encrypt(key, iv, answer)
     prefix = b"\x90\xAF\x00\x00\x20"
     postfix = b"\x00"
     apdu = bytearray(prefix + encrypted_answer + postfix).hex().upper()
@@ -140,11 +136,10 @@ def burn_04_auth_finalize(session, response):
     :param AuthSession session: AuthSession object
     :param response: Response from burn_03 command
     """
-    IVbytes = b"\x00" * 16
+    iv = b"\x00" * 16
     key = bytes.fromhex(DEFAULT_KEY)
-    cipher = AES.new(key, AES.MODE_CBC, IVbytes)
-    response = bytearray(bytes.fromhex(response[:-4]))
-    decrypted_auth_response = cipher.decrypt(response)
+    data = bytes.fromhex(response[:-4])
+    decrypted_auth_response = bl.aes_decrypt(key, iv, data)
     session.ti = decrypted_auth_response[:4]
     session.key_enc, session.key_mac = bl.derive_session_keys(
         key, session.rnd_a, session.rnd_b
@@ -192,9 +187,7 @@ def burn_06_change_keys(session, keys):
         if key_no != 0:
             xorkey = bl.xor(newkey, currentkey)
             keycrc32 = bl.jam_crc32(newkey)
-            print(f"\nCRC: {keycrc32.hex().upper()}")
             keydata = xorkey + keyversion + keycrc32
-            print(f"\nKEYDATA: {keydata.hex().upper()}")
         else:
             keydata = newkey + keyversion
         dataheader = key_no.to_bytes(1, "little", signed=False)
@@ -207,7 +200,6 @@ def burn_06_change_keys(session, keys):
             + encrypted_keydata
         )
         encrypted_keydata += bl.cmac_short(session.key_mac, cmacin)
-        print(encrypted_keydata.hex())
         commandpayload = dataheader + encrypted_keydata + b"\x00"
         le = len(commandpayload[:-1]).to_bytes(1, "little", signed=False)
         apdus.append((prefix + le + commandpayload).hex().upper())
