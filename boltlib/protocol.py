@@ -235,7 +235,6 @@ def wipe_02_auth_response(session, key, response):
     rnd_b = bl.aes_decrypt(key, iv, response)
 
     # Answer challenge with our own secret (RND_A) + rotated RND_B
-    print(rnd_b.hex())
     rnd_b_rot = bl.rotate_bytes(rnd_b, -1)
     rnd_a = session.rnd_a
     answer = rnd_a + rnd_b_rot
@@ -268,14 +267,11 @@ def wipe_03_auth_finalize(session, key, response):
     )
 
 
-
 def wipe_04_reset_picc(session):
     # type: (bl.AuthSession) -> list[str]
-    # type: (bl.AuthSession, str) -> list[str]
     """
     Configure PICC mirroring, SUN Messaging and other stuff
     """
-    url_obj = ""
     prefix = b"\x90\x5F\x00\x00\x19"
     dataheader = b"\x02"  # Filenumber
     filesettings = b"\x00\xE0\xEE"
@@ -309,9 +305,7 @@ def wipe_05_changekeys(session, keys):
         if key_no != 0:
             xorkey = bl.xor(newkey, currentkey)
             keycrc32 = bl.jam_crc32(newkey)
-            print(f"\nCRC: {keycrc32.hex().upper()}")
             keydata = xorkey + keyversion + keycrc32
-            print(f"\nKEYDATA: {keydata.hex().upper()}")
         else:
             keydata = newkey + keyversion
         dataheader = key_no.to_bytes(1, "little", signed=False)
@@ -324,13 +318,13 @@ def wipe_05_changekeys(session, keys):
             + encrypted_keydata
         )
         encrypted_keydata += bl.cmac_short(session.key_mac, cmacin)
-        print(encrypted_keydata.hex())
         commandpayload = dataheader + encrypted_keydata + b"\x00"
         le = len(commandpayload[:-1]).to_bytes(1, "little", signed=False)
         apdus.append((prefix + le + commandpayload).hex().upper())
         session.cmd_counter += 1
         key_no -= 1
     return apdus
+
 
 def wipe_06_clear_ndef():
     # type: () -> list[str]
