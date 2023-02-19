@@ -15,6 +15,8 @@ __all__ = [
     "encrypt_data",
     "xor",
     "jam_crc32",
+    "aes_decrypt",
+    "aes_encrypt",
 ]
 
 
@@ -112,3 +114,15 @@ def jam_crc32(data):
     # type: (bytes) -> bytes
     h = int("0b" + "1" * 32, 2) - binascii.crc32(data)
     return h.to_bytes(4, "little", signed=False)
+
+
+def aes_decrypt(key, iv, data):
+    # type: (bytes, bytes, bytes) -> bytes
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    return cipher.decrypt(data)
+
+
+def aes_encrypt(key, iv, data):
+    # type: (bytes, bytes, bytes) -> bytes
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    return cipher.encrypt(data)
