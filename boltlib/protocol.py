@@ -229,19 +229,17 @@ def wipe_02_auth_response(session, key, response):
     :return: List of APDUs
     """
     # Decrypt Challenge - The challenge is the 16 byte RND_B from PICC
-    IVbytes = b"\x00" * 16
+    iv = b"\x00" * 16
     key = bytes.fromhex(key)
-    cipher = AES.new(key, AES.MODE_CBC, IVbytes)
     response = bytearray(bytes.fromhex(response[:-4]))
-    rnd_b = cipher.decrypt(response)
+    rnd_b = bl.aes_decrypt(key, iv, response)
 
     # Answer challenge with our own secret (RND_A) + rotated RND_B
     print(rnd_b.hex())
     rnd_b_rot = bl.rotate_bytes(rnd_b, -1)
     rnd_a = session.rnd_a
     answer = rnd_a + rnd_b_rot
-    cipher = AES.new(key, AES.MODE_CBC, IVbytes)
-    encrypted_answer = cipher.encrypt(answer)
+    encrypted_answer = bl.aes_encrypt(key, iv, answer)
     prefix = b"\x90\xAF\x00\x00\x20"
     postfix = b"\x00"
     apdu = bytearray(prefix + encrypted_answer + postfix).hex().upper()
@@ -260,11 +258,10 @@ def wipe_03_auth_finalize(session, key, response):
     :param AuthSession session: AuthSession object
     :param response: Response from burn_03 command
     """
-    IVbytes = b"\x00" * 16
+    iv = b"\x00" * 16
     key = bytes.fromhex(key)
-    cipher = AES.new(key, AES.MODE_CBC, IVbytes)
     response = bytearray(bytes.fromhex(response[:-4]))
-    decrypted_auth_response = cipher.decrypt(response)
+    decrypted_auth_response = bl.aes_decrypt(key, iv, response)
     session.ti = decrypted_auth_response[:4]
     session.key_enc, session.key_mac = bl.derive_session_keys(
         key, session.rnd_a, session.rnd_b
