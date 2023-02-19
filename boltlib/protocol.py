@@ -109,7 +109,7 @@ def burn_03_auth_response(session, response):
     """
     # Decrypt Challenge - The challenge is the 16 byte RND_B from PICC
     iv = b"\x00" * 16
-    key = bytes.fromhex(DEFAULT_KEY)
+    key = session.key
     data = bytes.fromhex(response[:-4])
     rnd_b = bl.aes_decrypt(key, iv, data)
 
@@ -120,7 +120,7 @@ def burn_03_auth_response(session, response):
     encrypted_answer = bl.aes_encrypt(key, iv, answer)
     prefix = b"\x90\xAF\x00\x00\x20"
     postfix = b"\x00"
-    apdu = bytearray(prefix + encrypted_answer + postfix).hex().upper()
+    apdu = (prefix + encrypted_answer + postfix).hex().upper()
     session.rnd_a = rnd_a
     session.rnd_b = rnd_b
     return [apdu]
@@ -137,7 +137,7 @@ def burn_04_auth_finalize(session, response):
     :param response: Response from burn_03 command
     """
     iv = b"\x00" * 16
-    key = bytes.fromhex(DEFAULT_KEY)
+    key = session.key
     data = bytes.fromhex(response[:-4])
     decrypted_auth_response = bl.aes_decrypt(key, iv, data)
     session.ti = decrypted_auth_response[:4]
@@ -224,23 +224,7 @@ def wipe_02_auth_response(session, response):
     :param str response: The response from burn_02 command
     :return: List of APDUs
     """
-    # Decrypt Challenge - The challenge is the 16 byte RND_B from PICC
-    iv = b"\x00" * 16
-    key = session.key
-    response = bytearray(bytes.fromhex(response[:-4]))
-    rnd_b = bl.aes_decrypt(key, iv, response)
-
-    # Answer challenge with our own secret (RND_A) + rotated RND_B
-    rnd_b_rot = bl.rotate_bytes(rnd_b, -1)
-    rnd_a = session.rnd_a
-    answer = rnd_a + rnd_b_rot
-    encrypted_answer = bl.aes_encrypt(key, iv, answer)
-    prefix = b"\x90\xAF\x00\x00\x20"
-    postfix = b"\x00"
-    apdu = bytearray(prefix + encrypted_answer + postfix).hex().upper()
-    session.rnd_a = rnd_a
-    session.rnd_b = rnd_b
-    return [apdu]
+    return burn_03_auth_response(session, response)
 
 
 def wipe_03_auth_finalize(session, response):
@@ -253,14 +237,7 @@ def wipe_03_auth_finalize(session, response):
     :param AuthSession session: AuthSession object
     :param response: Response from burn_03 command
     """
-    iv = b"\x00" * 16
-    key = session.key
-    response = bytearray(bytes.fromhex(response[:-4]))
-    decrypted_auth_response = bl.aes_decrypt(key, iv, response)
-    session.ti = decrypted_auth_response[:4]
-    session.key_enc, session.key_mac = bl.derive_session_keys(
-        key, session.rnd_a, session.rnd_b
-    )
+    return burn_04_auth_finalize(session, response)
 
 
 def wipe_04_reset_picc(session):
