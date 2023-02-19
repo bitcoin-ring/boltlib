@@ -24,7 +24,7 @@ class AuthSession:
 
     def __init__(self, key="00000000000000000000000000000000"):
         # type: (str) -> None
-        self.key = key
+        self.key: bytes = bytes.fromhex(key)
         self.rnd_a: bytes = secrets.token_bytes(16)
         self.rnd_b: bytes = b""
         self.key_enc: bytes = b""

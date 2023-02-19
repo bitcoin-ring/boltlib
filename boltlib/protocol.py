@@ -208,16 +208,12 @@ def burn_06_change_keys(session, keys):
     return apdus
 
 
-def wipe_01_auth_challenge(session):
-    # type: (bl.AuthSession) -> list[str]
-    session.key_enc = b""
-    session.key_mac = b""
-    session.ti = b""
-    session.cmd_counter = 0
+def wipe_01_auth_challenge():
+    # type: () -> list[str]
     return [APDU_SELECT_NTAG_424, APDU_AUTH_FIRST_PART_1]
 
 
-def wipe_02_auth_response(session, key, response):
+def wipe_02_auth_response(session, response):
     # type: (bl.AuthSession, str) -> list[str]
     """
     Create ADPU commands to respond to auth challenge.
@@ -230,7 +226,7 @@ def wipe_02_auth_response(session, key, response):
     """
     # Decrypt Challenge - The challenge is the 16 byte RND_B from PICC
     iv = b"\x00" * 16
-    key = bytes.fromhex(key)
+    key = session.key
     response = bytearray(bytes.fromhex(response[:-4]))
     rnd_b = bl.aes_decrypt(key, iv, response)
 
@@ -247,7 +243,7 @@ def wipe_02_auth_response(session, key, response):
     return [apdu]
 
 
-def wipe_03_auth_finalize(session, key, response):
+def wipe_03_auth_finalize(session, response):
     # type: (bl.AuthSession, str) -> None
     """
     Finalize `AuthSession` object
@@ -258,7 +254,7 @@ def wipe_03_auth_finalize(session, key, response):
     :param response: Response from burn_03 command
     """
     iv = b"\x00" * 16
-    key = bytes.fromhex(key)
+    key = session.key
     response = bytearray(bytes.fromhex(response[:-4]))
     decrypted_auth_response = bl.aes_decrypt(key, iv, response)
     session.ti = decrypted_auth_response[:4]

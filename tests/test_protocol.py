@@ -71,44 +71,44 @@ def test_burn_06_change_keys(session):
     assert session.cmd_counter == 6
 
 
-def test_wipe_01_auth_challenge(session):
-    apdus = bl.wipe_01_auth_challenge(session)
+def test_wipe_01_auth_challenge():
+    apdus = bl.wipe_01_auth_challenge()
     assert apdus == ["00A4040007D276000085010100", "9071000005000300000000"]
 
 
-def test_wipe_02_auth_response(session):
-    session.rnd_a = bytes.fromhex("7FA9B3E2113552CFF1F44B8BB2B6775A")
+def test_wipe_02_auth_response(wsession):
+    wsession.rnd_a = bytes.fromhex("7FA9B3E2113552CFF1F44B8BB2B6775A")
     response = "876FA92BBBBC15F470F28FF3851F373491AF"
-    apdus = bl.wipe_02_auth_response(session, keys[0], response)
+    apdus = bl.wipe_02_auth_response(wsession, response)
     assert apdus == [
         "90AF000020047C98FFD117092937C798A603417B09324FDB66FF0B60356A65D8BF34B4152000"
     ]
-    assert session.rnd_b == bytes.fromhex("95BA5DA5716557DBE86ED0A51C8EAD96")
-    assert session.cmd_counter == 0
-    assert session.authenticated is False
+    assert wsession.rnd_b == bytes.fromhex("95BA5DA5716557DBE86ED0A51C8EAD96")
+    assert wsession.cmd_counter == 0
+    assert wsession.authenticated is False
 
 
-def test_wipe_03_auth_finalize(session):
+def test_wipe_03_auth_finalize(wsession):
     response = "EF58F86DA9CD541F3C280DC0C64385B77D4A064FCF8C77AB9A7C98144745E4509100"
-    bl.wipe_03_auth_finalize(session, keys[0], response)
-    assert session.rnd_a.hex().upper() == "7FA9B3E2113552CFF1F44B8BB2B6775A"
-    assert session.rnd_b.hex().upper() == "95BA5DA5716557DBE86ED0A51C8EAD96"
-    assert session.ti.hex().upper() == "C521C846"
-    assert session.key_mac.hex().upper() == "56DF52877E4B0FFD1159090811C279BE"
-    assert session.key_enc.hex().upper() == "7739D803B4304C69B60AC69A9ECB78C3"
-    assert session.cmd_counter == 0
+    bl.wipe_03_auth_finalize(wsession, response)
+    assert wsession.rnd_a.hex().upper() == "7FA9B3E2113552CFF1F44B8BB2B6775A"
+    assert wsession.rnd_b.hex().upper() == "95BA5DA5716557DBE86ED0A51C8EAD96"
+    assert wsession.ti.hex().upper() == "C521C846"
+    assert wsession.key_mac.hex().upper() == "56DF52877E4B0FFD1159090811C279BE"
+    assert wsession.key_enc.hex().upper() == "7739D803B4304C69B60AC69A9ECB78C3"
+    assert wsession.cmd_counter == 0
 
 
-def test_wipe_04_reset_picc(session):
-    assert session.cmd_counter == 0
-    apdus = bl.wipe_04_reset_picc(session)
+def test_wipe_04_reset_picc(wsession):
+    assert wsession.cmd_counter == 0
+    apdus = bl.wipe_04_reset_picc(wsession)
     assert apdus == ["905F00001902DCEDE38C556531EEFACE37109948FD16B0656D366997A9C100"]
-    assert session.cmd_counter == 1
+    assert wsession.cmd_counter == 1
 
 
-def test_wipe_05_changekeys(session):
-    assert session.cmd_counter == 1
-    apdus = bl.wipe_05_changekeys(session, keys)
+def test_wipe_05_changekeys(wsession):
+    assert wsession.cmd_counter == 1
+    apdus = bl.wipe_05_changekeys(wsession, keys)
     expected = [
         "90C400002904125B7201D5FBC4D3550E751E66953B06BABB543F4CB8E270F5CFD208EEDAC2528A3485001F9F8BFD00",
         "90C400002903D49BC9F646CE0E6CFB906127372B395DC59BD575660D015277CA78D54022CD5B1AFE77E104A8312900",
@@ -118,7 +118,7 @@ def test_wipe_05_changekeys(session):
     ]
     for e, a in zip(expected, apdus):
         assert a == e
-    assert session.cmd_counter == 6
+    assert wsession.cmd_counter == 6
 
 
 def wipe_06_clear_ndef():
