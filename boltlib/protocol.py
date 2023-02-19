@@ -210,9 +210,9 @@ def burn_06_change_keys(session, keys):
 
 def wipe_01_auth_challenge(session):
     # type: (bl.AuthSession) -> list[str]
-    session.key_enc = ""
-    session.key_mac = ""
-    session.ti = ""
+    session.key_enc = b""
+    session.key_mac = b""
+    session.ti = b""
     session.cmd_counter = 0
     return [APDU_SELECT_NTAG_424, APDU_AUTH_FIRST_PART_1]
 
@@ -328,4 +328,7 @@ def wipe_05_changekeys(session, keys):
 
 def wipe_06_clear_ndef():
     # type: () -> list[str]
-    pass
+    apdus = [APDU_SELECT_NTAG_424, APDU_SELECT_NDEF]
+    data = "00D68400F8" + "00" * 248
+    apdus.append(data)
+    return apdus
