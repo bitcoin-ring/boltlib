@@ -73,6 +73,11 @@ class Response:
         """Response status as hex string"""
         return bytes(self.raw[1:]).hex().upper()
 
+    @property
+    def hex(self) -> str:
+        """Full response as HEX string"""
+        return self.data + self.status
+
 
 def wait_for_card(timeout=None) -> CardService:
     """Wait for a compatible card and return a connection when a card is found."""

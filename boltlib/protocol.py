@@ -181,9 +181,7 @@ def burn_06_change_keys(session, keys):
         if key_no != 0:
             xorkey = bl.xor(newkey, currentkey)
             keycrc32 = bl.jam_crc32(newkey)
-            print(f"\nCRC: {keycrc32.hex().upper()}")
             keydata = xorkey + keyversion + keycrc32
-            print(f"\nKEYDATA: {keydata.hex().upper()}")
         else:
             keydata = newkey + keyversion
         dataheader = key_no.to_bytes(1, "little", signed=False)
@@ -196,7 +194,6 @@ def burn_06_change_keys(session, keys):
             + encrypted_keydata
         )
         encrypted_keydata += bl.cmac_short(session.key_mac, cmacin)
-        print(encrypted_keydata.hex())
         commandpayload = dataheader + encrypted_keydata + b"\x00"
         le = len(commandpayload[:-1]).to_bytes(1, "little", signed=False)
         apdus.append((prefix + le + commandpayload).hex().upper())
