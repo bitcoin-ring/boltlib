@@ -1,4 +1,5 @@
 .idea
+.data
 build
 dist
 site
