@@ -14,6 +14,7 @@ from PIL import Image, ImageDraw, ImageFont
 import pathlib
 from boltlib.provision import provision, wipe
 from dotenv import load_dotenv
+from hashlib import sha256
 
 
 load_dotenv()
@@ -24,9 +25,16 @@ HERE = pathlib.Path(__file__).parent.absolute()
 Image.MAX_IMAGE_PIXELS = 10000 * 14000 * 2
 
 
+def uid_to_username(uid: str) -> str:
+    """Create a deterministig username for uid"""
+    hex_hash = sha256(bytes.fromhex(uid)).hexdigest()
+    username = humanhash.humanize(hex_hash, words=2)
+    return username
+
+
 def get_user(uid: str) -> Optional[dict]:
     """Get LNbits user account for UID."""
-    username = humanhash.humanize(uid, words=2)
+    username = uid_to_username(uid)
     url = f"{server}/usermanager/api/v1/users"
     resp = httpx.get(url, params={"name": username}, headers={"X-Api-Key": admin_key})
     data = resp.json()
@@ -42,7 +50,7 @@ def create_account(uid: str):
     """Create (or get) account for UID (idempotent)."""
     user = get_user(uid=uid)
     if not user:
-        user_name = humanhash.humanize(uid, words=2)
+        user_name = uid_to_username(uid)
         log.info(f"Create user {user_name} for {uid}")
         data = {
             "user_name": user_name,
@@ -95,6 +103,7 @@ def get_card(wallet: dict) -> Optional[dict]:
 
 
 def create_card(wallet: dict, uid: str) -> dict:
+    """Create BoltCard entry on LNbits"""
     url = f"{server}/boltcards/api/v1/cards"
     card = get_card(wallet)
     if not card:
@@ -134,10 +143,11 @@ def get_paylink(wallet: dict) -> Optional[dict]:
 
 
 def create_paylink(wallet: dict, uid: str) -> dict:
+    """Create LNURLp Link on LNbits"""
     paylink = get_paylink(wallet)
     if paylink:
         return paylink
-    username = humanhash.humanize(uid, words=2)
+    username = uid_to_username(uid)
     url = f"{server}/lnurlp/api/v1/links"
     link = {
         "description": "BoltRing Funding",
@@ -151,13 +161,6 @@ def create_paylink(wallet: dict, uid: str) -> dict:
     paylink = resp.json()
     log.debug(f"Created Paylink: {paylink['id']}")
     return paylink
-
-
-def create_qr(content: str) -> Image:
-    qr = qrcode.QRCode()
-    qr.add_data(content)
-    qr.make(fit=True)
-    return qr.make_image().resize((2000, 2000), Image.LANCZOS)
 
 
 def create_leaflet(wallet: dict, card: dict, paylink: dict) -> Tuple[Path, Path]:
@@ -201,6 +204,7 @@ def create_leaflet(wallet: dict, card: dict, paylink: dict) -> Tuple[Path, Path]
 
 
 def provision_device(card: dict) -> None:
+    """Provision device with LNbits card"""
     lnurlw = (
         f"lnurlw://lnbits.bolt-ring.com/boltcards/api/v1/scan/{card['external_id']}"
     )
@@ -209,29 +213,33 @@ def provision_device(card: dict) -> None:
 
 
 def wipe_device(card: dict) -> None:
+    """Wipe device based on LNbits card object"""
     keys = [card["k0"], card["k1"], card["k2"], card["k1"], card["k2"]]
     wipe(keys)
 
 
 def topup(wallet: dict, amount=40000):
+    """Add funds to wallet"""
     balance = get_balance(wallet)
     if balance != 0:
         log.warning(f"Skip Topup! Existing Balance of {balance} on {wallet['id']}")
         return
-    url = f"{server}/admin/api/v1/topup"
-    params = {"usr": wallet["user"]}
+    url = f"{server}/admin/api/v1/topup/"
+    params = {"usr": admin_id}
     payload = {"id": wallet["id"], "amount": amount}
     resp = httpx.put(url, params=params, json=payload, headers={"X-Api-Key": admin_key})
     log.debug(f"Wallet funded {resp.json()}")
 
 
 def get_balance(wallet: dict) -> int:
+    """Get wallet balance"""
     url = f"{server}/api/v1/wallet"
     resp = httpx.get(url, headers={"X-Api-Key": wallet["adminkey"]})
     return resp.json()["balance"]
 
 
 def run():
+    """Main provisioning loop"""
     log.info("Started BoltDevice Setup")
     while True:
         user_input = input(
@@ -267,6 +275,7 @@ def run():
 
 
 def audit():
+    """Audit LNbits funds"""
     url = f"{server}/api/v1/audit"
     params = {"usr": admin_id}
     resp = httpx.get(url, params=params, headers={"X-Api-Key": admin_key})
