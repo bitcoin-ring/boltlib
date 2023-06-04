@@ -21,6 +21,12 @@ load_dotenv()
 server = os.getenv("server")
 admin_key = os.getenv("admin_key")
 admin_id = os.getenv("admin_id")
+font_path = os.getenv("font_path")
+img_path_front = os.getenv("img_path_front")
+img_path_back = os.getenv("img_path_back")
+img_path_front_a7 = os.getenv("img_path_front_a7")
+img_path_back_a7 = os.getenv("img_path_back_a7")
+
 HERE = pathlib.Path(__file__).parent.absolute()
 Image.MAX_IMAGE_PIXELS = 10000 * 14000 * 2
 
@@ -28,7 +34,7 @@ Image.MAX_IMAGE_PIXELS = 10000 * 14000 * 2
 def uid_to_username(uid: str) -> str:
     """Create a deterministig username for uid"""
     hex_hash = sha256(bytes.fromhex(uid)).hexdigest()
-    username = humanhash.humanize(hex_hash, words=2)
+    username = humanhash.humanize(hex_hash, words=2)[:15]
     return username
 
 
@@ -166,11 +172,11 @@ def create_paylink(wallet: dict, uid: str) -> dict:
 def create_leaflet(wallet: dict, card: dict, paylink: dict) -> Tuple[Path, Path]:
     """Create leaflet for printing"""
     log.debug("Creating Leaflet")
-    img_front = Image.open(HERE.parent / ".data/front.png")
+    img_front = Image.open(HERE.parent / img_path_front)
     paylink_uri = f"lightning:{paylink['lnurl']}"
     img_qr_paylink = qrcode.make(paylink_uri).resize((1987, 1987), Image.LANCZOS)
     img_front.paste(img_qr_paylink, (1498, 4290))
-    fnt = ImageFont.truetype((HERE.parent / ".data/font.ttf").as_posix(), 330)
+    fnt = ImageFont.truetype((HERE.parent / font_path).as_posix(), 330)
     draw = ImageDraw.Draw(img_front)
     uid_text = f"UID: {card['uid']}"
     draw.text((5555, 3100), uid_text, font=fnt, fill=(0, 0, 0))
@@ -178,7 +184,47 @@ def create_leaflet(wallet: dict, card: dict, paylink: dict) -> Tuple[Path, Path]
     path_front = HERE.parent / f".data/{card['uid']}_front.png"
     img_front.save(path_front)
 
-    img_back = Image.open(HERE.parent / ".data/back.png")
+    img_back = Image.open(HERE.parent / img_path_back)
+    wallet_url = f"{server}/wallet?usr={wallet['user']}&wal={wallet['id']}"
+    img_qr_wallet = qrcode.make(wallet_url).resize((1987, 1987), Image.LANCZOS)
+    img_back.paste(img_qr_wallet, (1492, 4262))
+    reset_code = json.dumps(
+        {
+            "action": "wipe",
+            "k0": card["k0"],
+            "k1": card["k1"],
+            "k2": card["k2"],
+            "k3": card["k1"],
+            "k4": card["k2"],
+            "uid": card["uid"],
+            "version": 1,
+        },
+        separators=(",", ":"),
+    )
+    img_qr_reset = qrcode.make(reset_code).resize((1987, 1987), Image.LANCZOS)
+    img_back.paste(img_qr_reset, (6450, 4262))
+    path_back = HERE.parent / f".data/{card['uid']}_back.png"
+    img_back.save(path_back)
+
+    return path_front, path_back
+
+
+def create_leaflet_a7(wallet: dict, card: dict, paylink: dict) -> Tuple[Path, Path]:
+    """Create leaflet for printing"""
+    log.debug("Creating Leaflet")
+    img_front = Image.open(HERE.parent / img_path_front_a7)
+    paylink_uri = f"lightning:{paylink['lnurl']}"
+    img_qr_paylink = qrcode.make(paylink_uri).resize((1987, 1987), Image.LANCZOS)
+    img_front.paste(img_qr_paylink, (1498, 4290))
+    fnt = ImageFont.truetype((HERE.parent / font_path).as_posix(), 330)
+    draw = ImageDraw.Draw(img_front)
+    uid_text = f"UID: {card['uid']}"
+    draw.text((5555, 3100), uid_text, font=fnt, fill=(0, 0, 0))
+
+    path_front = HERE.parent / f".data/{card['uid']}_front.png"
+    img_front.save(path_front)
+
+    img_back = Image.open(HERE.parent / img_path_back_a7)
     wallet_url = f"{server}/wallet?usr={wallet['user']}&wal={wallet['id']}"
     img_qr_wallet = qrcode.make(wallet_url).resize((1987, 1987), Image.LANCZOS)
     img_back.paste(img_qr_wallet, (1492, 4262))
@@ -216,6 +262,16 @@ def wipe_device(card: dict) -> None:
     """Wipe device based on LNbits card object"""
     keys = [card["k0"], card["k1"], card["k2"], card["k1"], card["k2"]]
     wipe(keys)
+
+
+def wipe_lnbits() -> None:
+    """Wipe device based on associated LNBits account"""
+    uid = bl.read_uid()
+    user = get_user(uid)
+    userid = user["id"]
+    wallet = get_wallet(userid)
+    card = get_card(wallet)
+    wipe_device(card)
 
 
 def topup(wallet: dict, amount=40000):
@@ -259,7 +315,7 @@ def run():
         wallet = get_wallet(userid)
         card = create_card(wallet, uid)
         paylink = create_paylink(wallet, uid)
-        front, back = create_leaflet(wallet, card, paylink)
+        front, back = create_leaflet_a7(wallet, card, paylink)
 
         input("Insert Paper Front and hit enter to print\n").lower()
         os.startfile(front.as_posix(), "print")
