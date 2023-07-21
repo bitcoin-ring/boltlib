@@ -19,6 +19,7 @@ from hashlib import sha256
 
 load_dotenv()
 server = os.getenv("server")
+main_key = os.getenv("main_key")
 admin_key = os.getenv("admin_key")
 admin_id = os.getenv("admin_id")
 font_path = os.getenv("font_path")
@@ -42,7 +43,7 @@ def get_user(uid: str) -> Optional[dict]:
     """Get LNbits user account for UID."""
     username = uid_to_username(uid)
     url = f"{server}/usermanager/api/v1/users"
-    resp = httpx.get(url, params={"name": username}, headers={"X-Api-Key": admin_key})
+    resp = httpx.get(url, params={"name": username}, headers={"X-Api-Key": main_key})
     data = resp.json()
     log.debug(f"Retrieved User: {data}")
     if data:
@@ -82,7 +83,7 @@ def enable_extension(extension: str, userid: str) -> dict:
 def get_wallet(userid: str) -> dict:
     """Get first wallet of user"""
     url = f"{server}/usermanager/api/v1/wallets/{userid}"
-    resp = httpx.get(url, headers={"X-Api-Key": admin_key})
+    resp = httpx.get(url, headers={"X-Api-Key": main_key})
     try:
         wallet = resp.json()[0]
         log.debug(f"Retrieved wallet: {wallet['id']}")
@@ -251,9 +252,8 @@ def create_leaflet_a7(wallet: dict, card: dict, paylink: dict) -> Tuple[Path, Pa
 
 def provision_device(card: dict) -> None:
     """Provision device with LNbits card"""
-    lnurlw = (
-        f"lnurlw://lnbits.bolt-ring.com/boltcards/api/v1/scan/{card['external_id']}"
-    )
+    root = server.replace("https://", "lnurlw://")
+    lnurlw = f"{root}/boltcards/api/v1/scan/{card['external_id']}"
     keys = [card["k0"], card["k1"], card["k2"], card["k1"], card["k2"]]
     provision(lnurlw, keys)
 
@@ -326,8 +326,8 @@ def run():
         input(f"Hit enter to provision device {uid}")
         provision_device(card)
 
-        input(f"Hit enter to topup account with 40k sats")
-        topup(wallet, amount=40000)
+        # input(f"Hit enter to topup account with 40k sats")
+        # topup(wallet, amount=40000)
 
 
 def audit():
