@@ -23,10 +23,10 @@ main_key = os.getenv("main_key")
 admin_key = os.getenv("admin_key")
 admin_id = os.getenv("admin_id")
 font_path = os.getenv("font_path")
-img_path_front = os.getenv("img_path_front")
-img_path_back = os.getenv("img_path_back")
-img_path_front_a7 = os.getenv("img_path_front_a7")
-img_path_back_a7 = os.getenv("img_path_back_a7")
+img_path_front_plain = os.getenv("img_path_front_plain")
+img_path_back_plain = os.getenv("img_path_back_plain")
+img_path_front_lnbits = os.getenv("img_path_front_lnbits")
+img_path_back_lnbits = os.getenv("img_path_back_lnbits")
 
 HERE = pathlib.Path(__file__).parent.absolute()
 Image.MAX_IMAGE_PIXELS = 10000 * 14000 * 2
@@ -170,50 +170,35 @@ def create_paylink(wallet: dict, uid: str) -> dict:
     return paylink
 
 
-def create_leaflet(wallet: dict, card: dict, paylink: dict) -> Tuple[Path, Path]:
-    """Create leaflet for printing"""
-    log.debug("Creating Leaflet")
-    img_front = Image.open(HERE.parent / img_path_front)
-    paylink_uri = f"lightning:{paylink['lnurl']}"
-    img_qr_paylink = qrcode.make(paylink_uri).resize((1987, 1987), Image.LANCZOS)
-    img_front.paste(img_qr_paylink, (1498, 4290))
+def create_leaflet_plain(uid: str) -> Tuple[Path, Path]:
+    """Create plain configuration leaflet for printing"""
+    log.debug("Creteing Plain Leaflet")
+
+    # Front with individual UID
+    img_front = Image.open(HERE.parent / img_path_front_plain)
     fnt = ImageFont.truetype((HERE.parent / font_path).as_posix(), 330)
     draw = ImageDraw.Draw(img_front)
-    uid_text = f"UID: {card['uid']}"
+    uid_text = f"UID: {uid.upper()}"
     draw.text((5555, 3100), uid_text, font=fnt, fill=(0, 0, 0))
-
-    path_front = HERE.parent / f".data/{card['uid']}_front.png"
+    path_front = HERE.parent / f".data/{uid.upper()}_front.png"
     img_front.save(path_front)
 
-    img_back = Image.open(HERE.parent / img_path_back)
-    wallet_url = f"{server}/wallet?usr={wallet['user']}&wal={wallet['id']}"
-    img_qr_wallet = qrcode.make(wallet_url).resize((1987, 1987), Image.LANCZOS)
-    img_back.paste(img_qr_wallet, (1492, 4262))
-    reset_code = json.dumps(
-        {
-            "action": "wipe",
-            "k0": card["k0"],
-            "k1": card["k1"],
-            "k2": card["k2"],
-            "k3": card["k1"],
-            "k4": card["k2"],
-            "uid": card["uid"],
-            "version": 1,
-        },
-        separators=(",", ":"),
+    # Back with documentation QR Code
+    img_back = Image.open(HERE.parent / img_path_back_plain)
+    img_qr_docs = qrcode.make("https://docs.bolt-ring.com").resize(
+        (1987, 1987), Image.LANCZOS
     )
-    img_qr_reset = qrcode.make(reset_code).resize((1987, 1987), Image.LANCZOS)
-    img_back.paste(img_qr_reset, (6450, 4262))
-    path_back = HERE.parent / f".data/{card['uid']}_back.png"
+    img_back.paste(img_qr_docs, (6450, 4262))
+    path_back = HERE.parent / f".data/{uid.upper()}_back.png"
     img_back.save(path_back)
 
     return path_front, path_back
 
 
-def create_leaflet_a7(wallet: dict, card: dict, paylink: dict) -> Tuple[Path, Path]:
-    """Create leaflet for printing"""
-    log.debug("Creating Leaflet")
-    img_front = Image.open(HERE.parent / img_path_front_a7)
+def create_leaflet_lnbits(wallet: dict, card: dict, paylink: dict) -> Tuple[Path, Path]:
+    """Create lnbits configuration leaflet for printing"""
+    log.debug("Creating LNbits Leaflet")
+    img_front = Image.open(HERE.parent / img_path_front_lnbits)
     paylink_uri = f"lightning:{paylink['lnurl']}"
     img_qr_paylink = qrcode.make(paylink_uri).resize((1987, 1987), Image.LANCZOS)
     img_front.paste(img_qr_paylink, (1498, 4290))
@@ -225,7 +210,7 @@ def create_leaflet_a7(wallet: dict, card: dict, paylink: dict) -> Tuple[Path, Pa
     path_front = HERE.parent / f".data/{card['uid']}_front.png"
     img_front.save(path_front)
 
-    img_back = Image.open(HERE.parent / img_path_back_a7)
+    img_back = Image.open(HERE.parent / img_path_back_lnbits)
     wallet_url = f"{server}/wallet?usr={wallet['user']}&wal={wallet['id']}"
     img_qr_wallet = qrcode.make(wallet_url).resize((1987, 1987), Image.LANCZOS)
     img_back.paste(img_qr_wallet, (1492, 4262))
@@ -315,7 +300,7 @@ def run():
         wallet = get_wallet(userid)
         card = create_card(wallet, uid)
         paylink = create_paylink(wallet, uid)
-        front, back = create_leaflet_a7(wallet, card, paylink)
+        front, back = create_leaflet_lnbits(wallet, card, paylink)
 
         input("Insert Paper Front and hit enter to print\n").lower()
         os.startfile(front.as_posix(), "print")
@@ -330,6 +315,57 @@ def run():
         # topup(wallet, amount=40000)
 
 
+def run_choice():
+    """Main provisioning loop"""
+    log.info("Started BoltDevice Setup")
+    while True:
+        user_input = None
+        while user_input not in ("p", "l", "q"):
+            user_input = input(
+                "Place device on NFC reader and hit 'p' for plain 'l' for lnbits or 'q' to quit!\n"
+            ).lower()
+
+        if user_input == "q":
+            raise KeyboardInterrupt
+
+        uid = bl.read_uid()
+
+        if user_input == "l":
+            # LNBits Setup
+            user = create_account(uid)
+
+            # Enable extensions
+            userid = user["id"]
+            enable_extension("boltcards", userid)
+            enable_extension("lnurlp", userid)
+
+            # Create Card
+            wallet = get_wallet(userid)
+            card = create_card(wallet, uid)
+            paylink = create_paylink(wallet, uid)
+            front, back = create_leaflet_lnbits(wallet, card, paylink)
+
+            input("Insert Paper Front and hit enter to print\n").lower()
+            os.startfile(front.as_posix(), "print")
+
+            input("Insert Paper Back and hit enter to print\n").lower()
+            os.startfile(back.as_posix(), "print")
+
+            input(f"Hit enter to provision device {uid}")
+            provision_device(card)
+
+        if user_input == "plain":
+            front, back = create_leaflet_plain(uid)
+            input("Insert Paper Front and hit enter to print\n").lower()
+            os.startfile(front.as_posix(), "print")
+
+            input("Insert Paper Back and hit enter to print\n").lower()
+            os.startfile(back.as_posix(), "print")
+
+            input(f"Hit enter to write docs uri to {uid}")
+            bl.write_uri("https://docs.bolt-ring.com")
+
+
 def audit():
     """Audit LNbits funds"""
     url = f"{server}/api/v1/audit"
@@ -340,7 +376,7 @@ def audit():
 
 def main():
     try:
-        run()
+        run_choice()
     except KeyboardInterrupt:
         log.info("Shutting down...")
     finally:
