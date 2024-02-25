@@ -35,7 +35,8 @@ Image.MAX_IMAGE_PIXELS = 10000 * 14000 * 2
 def uid_to_username(uid: str) -> str:
     """Create a deterministig username for uid"""
     hex_hash = sha256(bytes.fromhex(uid)).hexdigest()
-    username = humanhash.humanize(hex_hash, words=2)[:15]
+    # username = humanhash.humanize(hex_hash, words=2)[:15]
+    username = hex_hash[:15]
     return username
 
 
@@ -60,12 +61,17 @@ def create_account(uid: str):
         user_name = uid_to_username(uid)
         log.info(f"Create user {user_name} for {uid}")
         data = {
-            "user_name": user_name,
-            "wallet_name": "BoltRing",
             "admin_id": admin_id,
+            "wallet_name": "BoltRing",
+            "user_name": user_name,
+        }
+        headers = {
+            "X-Api-Key": admin_key,
+            "Content-type": "application/json",
+
         }
         url = f"{server}/usermanager/api/v1/users"
-        resp = httpx.post(url, json=data, headers={"X-Api-Key": admin_key})
+        resp = httpx.post(url, json=data, headers=headers)
         user = resp.json()
         log.debug(f"Created user {user}")
     return user
@@ -172,7 +178,7 @@ def create_paylink(wallet: dict, uid: str) -> dict:
 
 def create_leaflet_plain(uid: str) -> Tuple[Path, Path]:
     """Create plain configuration leaflet for printing"""
-    log.debug("Creteing Plain Leaflet")
+    log.debug("Creating Plain Leaflet")
 
     # Front with individual UID
     img_front = Image.open(HERE.parent / img_path_front_plain)
@@ -333,6 +339,7 @@ def run_choice():
         if user_input == "l":
             # LNBits Setup
             user = create_account(uid)
+            log.info(user)
 
             # Enable extensions
             userid = user["id"]
@@ -354,7 +361,7 @@ def run_choice():
             input(f"Hit enter to provision device {uid}")
             provision_device(card)
 
-        if user_input == "plain":
+        if user_input == "p":
             front, back = create_leaflet_plain(uid)
             input("Insert Paper Front and hit enter to print\n").lower()
             os.startfile(front.as_posix(), "print")
@@ -377,6 +384,7 @@ def audit():
 def main():
     try:
         run_choice()
+        # wipe_lnbits()
     except KeyboardInterrupt:
         log.info("Shutting down...")
     finally:
