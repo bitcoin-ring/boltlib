@@ -326,10 +326,13 @@ def run_choice():
     log.info("Started BoltDevice Setup")
     while True:
         user_input = None
-        while user_input not in ("p", "l", "q"):
-            user_input = input(
-                "Place device on NFC reader and hit 'p' for plain 'l' for lnbits or 'q' to quit!\n"
-            ).lower()
+        while user_input not in ("p", "l", "q", "w"):
+            print("Place device on NFC reader and hit:")
+            print("p -> Plain Setup")
+            print("l -> LNbits Setup")
+            print("w -> Wipe device")
+            print("q -> Quit app")
+            user_input = input("Choice: ").lower()
 
         if user_input == "q":
             raise KeyboardInterrupt
@@ -371,6 +374,9 @@ def run_choice():
 
             input(f"Hit enter to write docs uri to {uid}")
             bl.write_uri("https://docs.bolt-ring.com")
+
+        if user_input == "w":
+            wipe_lnbits()
 
 
 def audit():
